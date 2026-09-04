@@ -1,0 +1,47 @@
+const API_BASE_URL = 'http://localhost:5000/api';
+
+type ApiOptions = {
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+  body?: any;
+  token?: string;
+};
+
+export async function apiRequest(
+  endpoint: string,
+  options: ApiOptions = {}
+) {
+  const {
+    method = 'GET',
+    body,
+    token,
+  } = options;
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  const response = await fetch(
+    `${API_BASE_URL}${endpoint}`,
+    {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+    }
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(
+      data?.message || 'Something went wrong'
+    );
+  }
+
+  return data;
+}
+
+export { API_BASE_URL };
