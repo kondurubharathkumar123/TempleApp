@@ -107,9 +107,9 @@ app.listen(PORT, '0.0.0.0', () => {
 
 //beore
 
-app.listen(PORT, () => {
+/*app.listen(PORT, () => {
   console.log(`Temple App Backend running on port ${PORT}`);
-});
+});*/
 
 
 //andriod
@@ -117,3 +117,8 @@ app.listen(PORT, () => {
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Temple App Backend running on port ${PORT}`);
 });*/
+
+
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Temple App Backend running on port ${PORT}`);
+});
