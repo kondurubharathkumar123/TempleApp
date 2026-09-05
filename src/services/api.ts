@@ -1,9 +1,6 @@
 import { getToken } from '@/services/authStorage';
 
-//const API_BASE_URL = 'http://10.0.2.2:5000/api';
-//onst API_BASE_URL = 'http://192.168.0.105:5000/api';
-const API_BASE_URL = 'http://192.168.0.105:5000/api';
-
+const API_BASE_URL = 'https://templeapp-s96e.onrender.com/api';
 
 type ApiOptions = {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
