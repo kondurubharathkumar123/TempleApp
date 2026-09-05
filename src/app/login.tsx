@@ -17,6 +17,7 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Real backend login
   const handleLogin = async () => {
     if (!email.trim() || !password) {
       Alert.alert(
@@ -58,6 +59,19 @@ export default function LoginScreen() {
     }
   };
 
+  // Temporary demo login - does not require backend
+  const handleDemoLogin = async () => {
+    try {
+      await saveToken('demo-token');
+      router.replace('/(tabs)');
+    } catch (error) {
+      Alert.alert(
+        'Demo Login Failed',
+        'Unable to open the demo.'
+      );
+    }
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.label}>TEMPLE</Text>
@@ -93,6 +107,7 @@ export default function LoginScreen() {
         autoCapitalize="none"
       />
 
+      {/* Real Login */}
       <TouchableOpacity
         style={[
           styles.loginButton,
@@ -103,6 +118,17 @@ export default function LoginScreen() {
       >
         <Text style={styles.loginButtonText}>
           {loading ? 'Logging in...' : 'Login'}
+        </Text>
+      </TouchableOpacity>
+
+      {/* Temporary Demo Login */}
+      <TouchableOpacity
+        style={styles.demoButton}
+        onPress={handleDemoLogin}
+        disabled={loading}
+      >
+        <Text style={styles.demoButtonText}>
+          Continue as Demo User
         </Text>
       </TouchableOpacity>
 
@@ -183,6 +209,21 @@ const styles = StyleSheet.create({
   loginButtonText: {
     color: '#FFFFFF',
     fontSize: 14,
+    fontWeight: '700',
+  },
+
+  demoButton: {
+    height: 45,
+    borderRadius: 15,
+    backgroundColor: '#F4E0C5',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 10,
+  },
+
+  demoButtonText: {
+    color: '#8B4513',
+    fontSize: 13,
     fontWeight: '700',
   },
 
