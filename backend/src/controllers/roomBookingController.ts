@@ -131,13 +131,18 @@ export const getRoomBooking = async (
       success: true,
       data: result.rows[0],
     });
-  } catch (error) {
-    console.error('Error fetching room booking:', error);
+  } catch (error: any) {
+  console.error(
+    'Error checking room availability:',
+    error
+  );
 
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to fetch room booking',
-    });
+  return res.status(500).json({
+    success: false,
+    message:
+      error?.message ||
+      'Failed to check room availability',
+  });
   }
 };
 export const getUserRoomBookings = async (

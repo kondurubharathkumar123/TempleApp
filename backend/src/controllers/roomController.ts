@@ -21,7 +21,7 @@ export const getRoomTypes = async (
     );
 
     res.json({
-      success: true,
+      success: true,        
       data: result.rows,
     });
   } catch (error) {

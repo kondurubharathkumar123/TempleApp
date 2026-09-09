@@ -1,9 +1,10 @@
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/authMiddleware';
 import { requireAdmin } from '../middleware/adminMiddleware';
+import { uploadGalleryImage } from '../middleware/uploadMiddleware';
 import {
   getAdminDeities, createDeity, updateDeity, deactivateDeity,
-  getAdminGallery, createGalleryItem, updateGalleryItem, deactivateGalleryItem,
+  getAdminGallery, createGalleryItem, updateGalleryItem, deleteGalleryItem,
 } from '../controllers/adminContentController';
 
 const router = Router();
@@ -15,8 +16,20 @@ router.put('/deities/:id', updateDeity);
 router.delete('/deities/:id', deactivateDeity);
 
 router.get('/gallery', getAdminGallery);
-router.post('/gallery', createGalleryItem);
-router.put('/gallery/:id', updateGalleryItem);
-router.delete('/gallery/:id', deactivateGalleryItem);
+router.post(
+  '/gallery',
+  uploadGalleryImage.single('image'),
+  createGalleryItem
+);
+
+router.put(
+  '/gallery/:id',
+  uploadGalleryImage.single('image'),
+  updateGalleryItem
+);
+router.delete(
+  '/gallery/:id',
+  deleteGalleryItem
+);
 
 export default router;
