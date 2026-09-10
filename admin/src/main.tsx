@@ -10,6 +10,7 @@ import Events from './pages/Events';
 import RoomBookings from './pages/RoomBookings';
 import Rooms from './pages/Rooms';
 import Users from './pages/Users';
+import DarshanVideos from './pages/DarshanVideos';
 
 import './styles.css';
 
@@ -53,6 +54,7 @@ const nav = [
   ['dashboard', 'Dashboard'],
   ['deities', 'Deities'],
   ['darshan', 'Darshan'],
+  ['darshan-videos', 'Darshan Videos'],
   ['activities', 'Activities'],
   ['events', 'Events'],
   ['gallery', 'Gallery'],
@@ -1427,6 +1429,9 @@ function App() {
       {page === 'darshan' && (
         <Darshan />
       )}
+      {page === 'darshan-videos' && (
+  <DarshanVideos />
+)}
     </div>
   );
 }

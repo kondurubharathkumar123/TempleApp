@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { uploadDarshanThumbnail } from '../middleware/uploadMiddleware';
 
 import {
   getDarshanVideos,
@@ -29,6 +30,7 @@ router.get(
 
 router.post(
   '/admin/darshan-videos',
+  uploadDarshanThumbnail.single('thumbnail'),
   createDarshanVideo
 );
 

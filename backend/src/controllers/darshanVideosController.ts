@@ -99,13 +99,56 @@ export async function getAdminDarshanVideos(
   }
 }
 
+function getYouTubeThumbnail(url: string): string | null {
+  try {
+    const parsedUrl = new URL(url);
+
+    let videoId: string | null = null;
+
+    // youtube.com/watch?v=VIDEO_ID
+    if (
+      parsedUrl.hostname.includes('youtube.com') &&
+      parsedUrl.searchParams.get('v')
+    ) {
+      videoId = parsedUrl.searchParams.get('v');
+    }
+
+    // youtu.be/VIDEO_ID
+    if (
+      parsedUrl.hostname === 'youtu.be'
+    ) {
+      videoId =
+        parsedUrl.pathname
+          .split('/')
+          .filter(Boolean)[0] || null;
+    }
+
+    // youtube.com/live/VIDEO_ID
+    if (
+      parsedUrl.hostname.includes('youtube.com') &&
+      parsedUrl.pathname.startsWith('/live/')
+    ) {
+      videoId =
+        parsedUrl.pathname
+          .split('/')[2] || null;
+    }
+
+    if (!videoId) {
+      return null;
+    }
+
+    return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+  } catch {
+    return null;
+  }
+}
 /**
  * POST /admin/darshan-videos
  */
-export async function createDarshanVideo(
+export const createDarshanVideo = async (
   req: Request,
   res: Response
-) {
+) => {
   try {
     const {
       title,
@@ -113,24 +156,47 @@ export async function createDarshanVideo(
       label,
       url,
       thumbnail_url,
-      is_active,
     } = req.body;
 
-    if (!title?.trim()) {
+    if (!title || !url) {
       return res.status(400).json({
         success: false,
-        message: 'Title is required.',
+        message: 'Title and YouTube URL are required.',
       });
     }
 
-    if (!url?.trim()) {
+    if (label !== 'live' && label !== 'watch') {
       return res.status(400).json({
         success: false,
-        message: 'YouTube URL is required.',
+        message: 'Label must be live or watch.',
       });
     }
 
-    const normalizedLabel = normalizeLabel(label);
+    /*
+      Thumbnail can come from either:
+      1. Uploaded image
+      2. Thumbnail URL
+
+      Uploaded image takes priority.
+    */
+   let finalThumbnailUrl = thumbnail_url?.trim() || null;
+
+/*
+ * Uploaded thumbnail has highest priority.
+ */
+if (req.file) {
+  finalThumbnailUrl =
+    `/uploads/darshan/${req.file.filename}`;
+}
+
+/*
+ * If admin did not provide a thumbnail,
+ * automatically use the YouTube thumbnail.
+ */
+if (!finalThumbnailUrl) {
+  finalThumbnailUrl =
+    getYouTubeThumbnail(url);
+}
 
     const result = await pool.query(
       `
@@ -143,25 +209,15 @@ export async function createDarshanVideo(
         thumbnail_url,
         is_active
       )
-      VALUES ($1, $2, $3, $4, $5, $6)
-      RETURNING
-        id,
-        title,
-        description,
-        label,
-        url,
-        thumbnail_url,
-        is_active,
-        created_at,
-        updated_at
+      VALUES ($1, $2, $3, $4, $5, TRUE)
+      RETURNING *
       `,
       [
-        title.trim(),
-        description?.trim() || null,
-        normalizedLabel,
-        url.trim(),
-        thumbnail_url?.trim() || null,
-        is_active !== false,
+        title,
+        description || null,
+        label,
+        url,
+        finalThumbnailUrl,
       ]
     );
 
@@ -175,15 +231,12 @@ export async function createDarshanVideo(
       error
     );
 
-    return res.status(400).json({
+    return res.status(500).json({
       success: false,
-      message:
-        error instanceof Error
-          ? error.message
-          : 'Failed to create darshan video.',
+      message: 'Failed to create darshan video.',
     });
   }
-}
+};
 
 /**
  * PUT /admin/darshan-videos/:id
