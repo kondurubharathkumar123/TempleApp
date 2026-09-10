@@ -266,16 +266,15 @@ export default function RoomsScreen() {
        */
       for (const room of activeRooms) {
         try {
-          const checkInDate =
-            formatDateForApi(checkIn);
+          
+            const formattedCheckIn = checkIn.toISOString().split('T')[0];
+const formattedCheckOut = checkOut.toISOString().split('T')[0];
 
-          const checkOutDate =
-            formatDateForApi(checkOut);
 
-          const endpoint =
-            `/room-bookings/availability/${room.id}` +
-            `?check_in=${checkInDate}` +
-            `&check_out=${checkOutDate}`;
+        const endpoint =
+  `/room-bookings/${room.id}/availability` +
+  `?check_in=${formattedCheckIn}` +
+  `&check_out=${formattedCheckOut}`;
 
           console.log(
             'Checking room availability:',

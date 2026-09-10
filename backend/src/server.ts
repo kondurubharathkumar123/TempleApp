@@ -20,6 +20,7 @@ import sevaRoutes from './routes/sevaRoutes';
 import adminRoomBookingRoutes from './routes/adminRoomBookingRoutes';
 import adminDarshanRoutes from './routes/adminDarshanRoutes';
 import darshanRoutes from './routes/darshanRoutes';
+import darshanVideosRoutes from './routes/darshanVideos';
 dotenv.config();
 
 const app = express();
@@ -35,6 +36,7 @@ app.use(
 app.use('/api/deities', deityRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/darshan', darshanRoutes);
+app.use('/api', darshanVideosRoutes);
 app.use('/api/admin', adminContentRoutes);
 app.use('/api/admin/darshan', adminDarshanRoutes);
 app.use('/api/admin/activities', adminActivityRoutes);

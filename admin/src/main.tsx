@@ -4,12 +4,12 @@ import { createRoot } from 'react-dom/client';
 import { apiRequest, clearAdminSession } from './lib/api';
 
 import Activities from './pages/Activities';
-import Users from './pages/Users';
-import Rooms from './pages/Rooms';
 import Bookings from './pages/Bookings';
-import RoomBookings from './pages/RoomBookings';
+import Darshan from './pages/Darshan';
 import Events from './pages/Events';
-import Darshan from './pages/Darshan'
+import RoomBookings from './pages/RoomBookings';
+import Rooms from './pages/Rooms';
+import Users from './pages/Users';
 
 import './styles.css';
 
@@ -337,7 +337,7 @@ function Deities() {
 
   async function remove(id: number) {
     if (
-      !confirm(
+      !window.confirm(
         'Deactivate this deity?'
       )
     ) {
@@ -586,82 +586,313 @@ function Deities() {
 }
 
 function Gallery() {
-  const [items, setItems] =
-    useState<Gallery[]>([]);
-
+  const [items, setItems] = useState<Gallery[]>([]);
   const [editing, setEditing] =
-    useState<
-      Partial<Gallery> | null
-    >(null);
+    useState<Partial<Gallery> | null>(null);
 
-  const [error, setError] =
-    useState('');
+  const [error, setError] = useState('');
 
-  const load = () =>
-    apiRequest<{ data: Gallery[] }>(
-      '/admin/gallery'
-    )
-      .then((r) =>
-        setItems(r.data)
-      )
-      .catch((e) =>
-        setError(e.message)
+  const [imageMode, setImageMode] =
+    useState<'url' | 'upload'>('url');
+
+  const [selectedFile, setSelectedFile] =
+    useState<File | null>(null);
+
+  const [busy, setBusy] = useState(false);
+  const [deletingId, setDeletingId] =
+    useState<number | null>(null);
+
+  const load = async () => {
+    try {
+      const result = await apiRequest<{
+        data: Gallery[];
+      }>('/admin/gallery');
+
+      setItems(result.data);
+    } catch (e) {
+      setError(
+        e instanceof Error
+          ? e.message
+          : 'Failed to load gallery'
       );
+    }
+  };
 
   useEffect(() => {
     load();
   }, []);
 
+  /*
+   * -----------------------------------------
+   * ADD GALLERY FORM
+   * -----------------------------------------
+   */
+  function openAddForm() {
+    setError('');
+    setSelectedFile(null);
+    setImageMode('url');
+
+    setEditing({
+      title: '',
+      description: '',
+      category: '',
+      image_url: '',
+      is_active: true,
+    });
+  }
+
+  /*
+   * -----------------------------------------
+   * EDIT GALLERY FORM
+   * -----------------------------------------
+   */
+  function openEditForm(item: Gallery) {
+    setError('');
+    setSelectedFile(null);
+    setImageMode('url');
+
+    setEditing({
+      ...item,
+    });
+  }
+
+  /*
+   * -----------------------------------------
+   * FILE CHANGE
+   * -----------------------------------------
+   */
+  function handleFileChange(
+    e: React.ChangeEvent<HTMLInputElement>
+  ) {
+    const file = e.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    if (!file.type.startsWith('image/')) {
+      setError(
+        'Please select a JPG, JPEG, PNG or WEBP image.'
+      );
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setError(
+        'Image size must be 5 MB or less.'
+      );
+      return;
+    }
+
+    setError('');
+    setSelectedFile(file);
+
+    setEditing((current) => ({
+      ...current,
+      image_url: URL.createObjectURL(file),
+    }));
+  }
+
+  /*
+   * -----------------------------------------
+   * SAVE GALLERY
+   * -----------------------------------------
+   */
   async function save(
     e: React.FormEvent
   ) {
     e.preventDefault();
 
-    if (
-      !editing?.title ||
-      !editing.image_url
-    ) {
+    if (!editing) {
       return;
     }
 
+    setError('');
+    setBusy(true);
+
     try {
-      const method = editing.id
+      const isEditing = Boolean(editing.id);
+
+      const endpoint = isEditing
+        ? `/admin/gallery/${editing.id}`
+        : '/admin/gallery';
+
+      const method = isEditing
         ? 'PUT'
         : 'POST';
 
-      await apiRequest(
-        editing.id
-          ? `/admin/gallery/${editing.id}`
-          : '/admin/gallery',
-        {
-          method,
-          body: JSON.stringify(
-            editing
-          ),
+      /*
+       * -----------------------------------------
+       * UPLOAD IMAGE
+       * -----------------------------------------
+       */
+      if (imageMode === 'upload') {
+        if (
+          !selectedFile &&
+          !editing.image_url
+        ) {
+          throw new Error(
+            'Please select an image.'
+          );
         }
-      );
+
+        /*
+         * New image selected
+         */
+        if (selectedFile) {
+          const formData = new FormData();
+
+          formData.append(
+            'image',
+            selectedFile
+          );
+
+          if (editing.title?.trim()) {
+            formData.append(
+              'title',
+              editing.title.trim()
+            );
+          }
+
+          if (
+            editing.description?.trim()
+          ) {
+            formData.append(
+              'description',
+              editing.description.trim()
+            );
+          }
+
+          if (editing.category?.trim()) {
+            formData.append(
+              'category',
+              editing.category.trim()
+            );
+          }
+
+          formData.append(
+            'is_active',
+            String(
+              editing.is_active !== false
+            )
+          );
+
+          await apiRequest(
+            endpoint,
+            {
+              method,
+              body: formData,
+            }
+          );
+        } else {
+          /*
+           * Existing image.
+           * Only update text/category/status.
+           */
+          await apiRequest(
+            endpoint,
+            {
+              method,
+              body: JSON.stringify({
+                title:
+                  editing.title?.trim() ||
+                  null,
+
+                description:
+                  editing.description?.trim() ||
+                  null,
+
+                category:
+                  editing.category?.trim() ||
+                  null,
+
+                is_active:
+                  editing.is_active !== false,
+              }),
+            }
+          );
+        }
+      }
+
+      /*
+       * -----------------------------------------
+       * IMAGE URL
+       * -----------------------------------------
+       */
+      else {
+        const imageUrl =
+          editing.image_url?.trim();
+
+        if (!imageUrl) {
+          throw new Error(
+            'Please enter an image URL.'
+          );
+        }
+
+        await apiRequest(
+          endpoint,
+          {
+            method,
+            body: JSON.stringify({
+              title:
+                editing.title?.trim() ||
+                null,
+
+              description:
+                editing.description?.trim() ||
+                null,
+
+              image_url: imageUrl,
+
+              category:
+                editing.category?.trim() ||
+                null,
+
+              is_active:
+                editing.is_active !== false,
+            }),
+          }
+        );
+      }
 
       setEditing(null);
-      load();
+      setSelectedFile(null);
+
+      await load();
     } catch (e) {
       setError(
         e instanceof Error
           ? e.message
           : 'Save failed'
       );
+    } finally {
+      setBusy(false);
     }
   }
 
-  async function remove(id: number) {
-    if (
-      !confirm(
-        'Deactivate this gallery item?'
-      )
-    ) {
+  /*
+   * -----------------------------------------
+   * PERMANENT DELETE GALLERY IMAGE
+   * -----------------------------------------
+   */
+  async function handleDeleteGallery(
+    id: number
+  ) {
+    const confirmed = window.confirm(
+      'Are you sure you want to permanently delete this gallery image?'
+    );
+
+    if (!confirmed) {
       return;
     }
 
+    setError('');
+    setDeletingId(id);
+
     try {
+      /*
+       * DELETE FROM DATABASE
+       */
       await apiRequest(
         `/admin/gallery/${id}`,
         {
@@ -669,13 +900,27 @@ function Gallery() {
         }
       );
 
-      load();
-    } catch (e) {
-      setError(
-        e instanceof Error
-          ? e.message
-          : 'Delete failed'
+      /*
+       * Remove immediately from admin UI.
+       */
+      setItems((currentItems) =>
+        currentItems.filter(
+          (item) => item.id !== id
+        )
       );
+    } catch (error) {
+      console.error(
+        'Delete gallery image error:',
+        error
+      );
+
+      setError(
+        error instanceof Error
+          ? error.message
+          : 'Failed to delete gallery image'
+      );
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -686,11 +931,8 @@ function Gallery() {
       action={
         <button
           className="primary"
-          onClick={() =>
-            setEditing({
-              is_active: true,
-            })
-          }
+          onClick={openAddForm}
+          disabled={busy || deletingId !== null}
         >
           + Add Image
         </button>
@@ -702,6 +944,8 @@ function Gallery() {
         </div>
       )}
 
+      {/* ADD / EDIT FORM */}
+
       {editing && (
         <form
           className="form-card"
@@ -709,14 +953,115 @@ function Gallery() {
         >
           <h3>
             {editing.id
-              ? 'Edit'
-              : 'Add'}{' '}
-            Gallery Image
+              ? 'Edit Gallery Image'
+              : 'Add Gallery Image'}
           </h3>
+
+          {/* IMAGE MODE */}
+
+          <div
+            style={{
+              display: 'flex',
+              gap: '10px',
+              marginBottom: '18px',
+            }}
+          >
+            <button
+              type="button"
+              className={
+                imageMode === 'url'
+                  ? 'primary'
+                  : ''
+              }
+              onClick={() => {
+                setImageMode('url');
+                setSelectedFile(null);
+                setError('');
+              }}
+            >
+              Image URL
+            </button>
+
+            <button
+              type="button"
+              className={
+                imageMode === 'upload'
+                  ? 'primary'
+                  : ''
+              }
+              onClick={() => {
+                setImageMode('upload');
+                setError('');
+              }}
+            >
+              Upload Image
+            </button>
+          </div>
+
+          {/* IMAGE URL */}
+
+          {imageMode === 'url' && (
+            <label>
+              Image URL
+
+              <input
+                type="url"
+                value={
+                  editing.image_url || ''
+                }
+                onChange={(e) =>
+                  setEditing({
+                    ...editing,
+                    image_url:
+                      e.target.value,
+                  })
+                }
+                placeholder="https://example.com/image.jpg"
+              />
+            </label>
+          )}
+
+          {/* UPLOAD IMAGE */}
+
+          {imageMode === 'upload' && (
+            <label>
+              Upload Image
+
+              <input
+                type="file"
+                accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+                onChange={
+                  handleFileChange
+                }
+              />
+
+              <small
+                style={{
+                  display: 'block',
+                  marginTop: '6px',
+                }}
+              >
+                JPG, JPEG, PNG or WEBP ·
+                Maximum 5 MB
+              </small>
+            </label>
+          )}
+
+          {/* TITLE / CATEGORY */}
 
           <div className="grid2">
             <label>
               Title
+
+              <span
+                style={{
+                  fontWeight: 'normal',
+                  fontSize: '12px',
+                }}
+              >
+                {' '}
+                (optional)
+              </span>
 
               <input
                 value={
@@ -725,20 +1070,30 @@ function Gallery() {
                 onChange={(e) =>
                   setEditing({
                     ...editing,
-                    title: e.target.value,
+                    title:
+                      e.target.value,
                   })
                 }
-                required
+                placeholder="Temple Entrance"
               />
             </label>
 
             <label>
               Category
 
+              <span
+                style={{
+                  fontWeight: 'normal',
+                  fontSize: '12px',
+                }}
+              >
+                {' '}
+                (optional)
+              </span>
+
               <input
                 value={
-                  editing.category ||
-                  ''
+                  editing.category || ''
                 }
                 onChange={(e) =>
                   setEditing({
@@ -747,36 +1102,29 @@ function Gallery() {
                       e.target.value,
                   })
                 }
+                placeholder="Temple"
               />
             </label>
           </div>
 
-          <label>
-            Image URL
-
-            <input
-              value={
-                editing.image_url ||
-                ''
-              }
-              onChange={(e) =>
-                setEditing({
-                  ...editing,
-                  image_url:
-                    e.target.value,
-                })
-              }
-              required
-            />
-          </label>
+          {/* DESCRIPTION */}
 
           <label>
             Description
 
+            <span
+              style={{
+                fontWeight: 'normal',
+                fontSize: '12px',
+              }}
+            >
+              {' '}
+              (optional)
+            </span>
+
             <textarea
               value={
-                editing.description ||
-                ''
+                editing.description || ''
               }
               onChange={(e) =>
                 setEditing({
@@ -785,23 +1133,39 @@ function Gallery() {
                     e.target.value,
                 })
               }
+              placeholder="Optional description"
             />
           </label>
+
+          {/* IMAGE PREVIEW */}
 
           {editing.image_url && (
             <img
               className="preview"
-              src={editing.image_url}
-              alt={editing.title || 'Gallery preview'}
+              src={
+                editing.image_url.startsWith(
+                  '/uploads/'
+                )
+                  ? `${window.location.origin}${editing.image_url}`
+                  : editing.image_url
+              }
+              alt={
+                editing.title ||
+                'Gallery preview'
+              }
             />
           )}
+
+          {/* ACTIONS */}
 
           <div className="actions">
             <button
               type="button"
-              onClick={() =>
-                setEditing(null)
-              }
+              onClick={() => {
+                setEditing(null);
+                setSelectedFile(null);
+              }}
+              disabled={busy}
             >
               Cancel
             </button>
@@ -809,12 +1173,19 @@ function Gallery() {
             <button
               type="submit"
               className="primary"
+              disabled={busy}
             >
-              Save Image
+              {busy
+                ? 'Saving…'
+                : editing.id
+                  ? 'Save Changes'
+                  : 'Add Image'}
             </button>
           </div>
         </form>
       )}
+
+      {/* GALLERY LIST */}
 
       <div className="gallery-grid">
         {items.map((x) => (
@@ -824,8 +1195,17 @@ function Gallery() {
           >
             {x.image_url ? (
               <img
-                src={x.image_url}
-                alt={x.title}
+                src={
+                  x.image_url.startsWith(
+                    '/uploads/'
+                  )
+                    ? `${window.location.origin}${x.image_url}`
+                    : x.image_url
+                }
+                alt={
+                  x.title ||
+                  'Gallery image'
+                }
               />
             ) : (
               <div className="gallery-empty">
@@ -835,19 +1215,30 @@ function Gallery() {
 
             <div className="gallery-body">
               <strong>
-                {x.title}
+                {x.title ||
+                  'Gallery Image'}
               </strong>
 
-              <span>
-                {x.category ||
-                  'Uncategorized'}
-              </span>
+              {x.category && (
+                <span>
+                  {x.category}
+                </span>
+              )}
+
+              {x.description && (
+                <p>
+                  {x.description}
+                </p>
+              )}
 
               <div className="actions">
                 <button
                   type="button"
                   onClick={() =>
-                    setEditing(x)
+                    openEditForm(x)
+                  }
+                  disabled={
+                    deletingId !== null
                   }
                 >
                   Edit
@@ -857,10 +1248,17 @@ function Gallery() {
                   type="button"
                   className="danger"
                   onClick={() =>
-                    remove(x.id)
+                    handleDeleteGallery(
+                      x.id
+                    )
+                  }
+                  disabled={
+                    deletingId !== null
                   }
                 >
-                  Deactivate
+                  {deletingId === x.id
+                    ? 'Deleting…'
+                    : 'Delete'}
                 </button>
               </div>
             </div>
@@ -932,11 +1330,8 @@ function App() {
   return (
     <div className="app">
 
-      {/* SIDEBAR */}
       <aside>
-
         <div className="side-brand">
-
           <span>
             ॐ
           </span>
@@ -950,11 +1345,9 @@ function App() {
               Management Portal
             </small>
           </div>
-
         </div>
 
         <nav>
-
           {nav.map(
             ([id, label]) => (
               <button
@@ -973,13 +1366,10 @@ function App() {
               </button>
             )
           )}
-
         </nav>
 
         <div className="side-bottom">
-
           <div className="admin-user">
-
             <strong>
               {user.full_name}
             </strong>
@@ -987,7 +1377,6 @@ function App() {
             <small>
               {user.email}
             </small>
-
           </div>
 
           <button
@@ -996,34 +1385,48 @@ function App() {
           >
             Sign out
           </button>
-
         </div>
-
       </aside>
 
-      {/* PAGES */}
+      {page === 'dashboard' && (
+        <Dashboard />
+      )}
 
-    {page === 'dashboard' && <Dashboard />}
+      {page === 'deities' && (
+        <Deities />
+      )}
 
-{page === 'deities' && <Deities />}
+      {page === 'activities' && (
+        <Activities />
+      )}
 
-{page === 'activities' && <Activities />}
+      {page === 'gallery' && (
+        <Gallery />
+      )}
 
-{page === 'gallery' && <Gallery />}
+      {page === 'users' && (
+        <Users />
+      )}
 
-{page === 'users' && <Users />}
+      {page === 'bookings' && (
+        <Bookings />
+      )}
 
-{page === 'bookings' && <Bookings />}
+      {page === 'rooms' && (
+        <Rooms />
+      )}
 
-{page === 'rooms' && <Rooms />}
+      {page === 'room-bookings' && (
+        <RoomBookings />
+      )}
 
+      {page === 'events' && (
+        <Events />
+      )}
 
-
-{page === 'room-bookings' && <RoomBookings />}
-
-{page === 'events' && <Events />}
-{page === 'darshan' && <Darshan />}
-
+      {page === 'darshan' && (
+        <Darshan />
+      )}
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import React, {
+import {
   useCallback,
   useMemo,
   useState,
@@ -278,44 +278,58 @@ export default function RoomBookingScreen() {
    * &check_out=YYYY-MM-DD
    */
 
-  const checkSelectedRoomAvailability =
-    async (
-      roomId: number
-    ): Promise<boolean> => {
-      console.log(
-        'Checking selected room availability:',
-        roomId
-      );
+ /*
+ * ----------------------------------------
+ * CHECK ROOM AVAILABILITY
+ * ----------------------------------------
+ *
+ * Backend route:
+ *
+ * GET
+ * /room-bookings/:roomId/availability
+ *
+ * with:
+ * ?check_in=YYYY-MM-DD
+ * &check_out=YYYY-MM-DD
+ */
 
-      const endpoint =
-        `/room-bookings/availability/${roomId}` +
-        `?check_in=${encodeURIComponent(
-          checkIn
-        )}` +
-        `&check_out=${encodeURIComponent(
-          checkOut
-        )}`;
+const checkSelectedRoomAvailability =
+  async (
+    roomId: number
+  ): Promise<boolean> => {
+    console.log(
+      'Checking selected room availability:',
+      roomId
+    );
 
-      console.log(
-        'Availability endpoint:',
+    const endpoint =
+      `/room-bookings/${roomId}/availability` +
+      `?check_in=${encodeURIComponent(
+        checkIn
+      )}` +
+      `&check_out=${encodeURIComponent(
+        checkOut
+      )}`;
+
+    console.log(
+      'Availability endpoint:',
+      endpoint
+    );
+
+    const response =
+      await apiRequest(
         endpoint
       );
 
-      const response =
-        await apiRequest(
-          endpoint
-        );
+    console.log(
+      'Selected room availability response:',
+      response
+    );
 
-      console.log(
-        'Selected room availability response:',
-        response
-      );
-
-      return (
-        response?.available === true
-      );
-    };
-
+    return (
+      response?.available === true
+    );
+  };
   /*
    * ----------------------------------------
    * BOOK ROOM

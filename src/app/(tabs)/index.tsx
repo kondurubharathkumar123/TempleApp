@@ -1,57 +1,289 @@
 import { apiRequest } from '@/services/api';
 import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
 import {
+  setAudioModeAsync,
+  useAudioPlayer,
+  useAudioPlayerStatus,
+} from 'expo-audio';
+import { useEffect, useRef, useState } from 'react';
+import type React from 'react';
+import {
+  Animated,
+  Easing,
   Image,
+  Linking,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const COLORS = {
-  bg: '#FFF9F0',
-  brown: '#4A2C18',
-  darkBrown: '#6F3518',
-  gold: '#C58A2A',
-  cream: '#F8E8D2',
+  bg: '#FFFCF7',
+  brown: '#5A1820',
+  darkBrown: '#741B22',
+  gold: '#B8872E',
+  goldLight: '#F1D58A',
+  cream: '#F8EBD8',
   white: '#FFFFFF',
-  muted: '#7C6B5D',
-  line: '#EADCCB',
+  muted: '#7D6B60',
+  line: '#E9DCCB',
+  soft: '#FFFDF9',
+  peach: '#F4E0C8',
+  green: '#61734A',
+};
+
+
+const FONTS = {
+  display: Platform.select({
+    ios: 'Georgia',
+    android: 'serif',
+    default: 'serif',
+  }),
+  body: Platform.select({
+    ios: 'System',
+    android: 'sans-serif',
+    default: 'sans-serif',
+  }),
+  medium: Platform.select({
+    ios: 'System',
+    android: 'sans-serif-medium',
+    default: 'sans-serif',
+  }),
 };
 
 const GURU_DATA = [
-  {
-    id: '1',
-    name: 'Sri Guru',
-    title: 'Paramaguru',
-    bio: 'A guiding presence in the spiritual lineage, inspiring devotees through wisdom, devotion and service.',
-    image:
-      'https://images.unsplash.com/photo-1604608672516-f1b9b1e3c5f7?auto=format&fit=crop&w=700&q=85',
-  },
-  {
-    id: '2',
-    name: 'Sri Acharya',
-    title: 'Acharya',
-    bio: 'A revered teacher who carried the tradition forward through spiritual learning and compassionate guidance.',
-    image:
-      'https://images.unsplash.com/photo-1604881991720-f91add269bed?auto=format&fit=crop&w=700&q=85',
-  },
+ 
   {
     id: '3',
-    name: 'Sri Swamiji',
-    title: 'Spiritual Guide',
-    bio: 'Known for devotional teachings, discipline and a life dedicated to the welfare of devotees.',
+    name: 'Bhagavatpāda Śaṅkara',
+    title: 'BHAGAVATPĀDA',
     image:
-      'https://images.unsplash.com/photo-1545389336-cf090694435e?auto=format&fit=crop&w=700&q=85',
+      'https://www.divyakshetrahariharapura.com/web/assets/img/guru-parampara/shankaracharya.jpg',
+    verse:
+      'श्रुतिस्मृतिपुराणानामालयं करुणालयम् । नमामि भगवत्पादं शङ्करं लोकशङ्करम् ॥',
+    transliteration:
+      'śrutismṛtipurāṇānāmālayaṃ karuṇālayam ∣ namāmi bhagavatpādaṃ śaṅkaraṃ lokaśaṅkaram ∥3∥',
+    translation:
+      'I bow down to Bhagavatpāda Śaṅkara—the abode of the Śruti (Vedas), Smṛti, and Purāṇas, the very embodiment of compassion, and the one who brings auspiciousness to the entire world.',
+  },
+  {
+    id: '4',
+    name: 'Guru Sureśvara',
+    title: 'GURU',
+    image:
+      'https://www.divyakshetrahariharapura.com/web/assets/img/guru-parampara/sureshwaracharya.jpg',
+    verse:
+      'वन्देऽहं शङ्कराचार्यसच्छिष्यम् ज्ञानसागरम् । सुरेश्वरं गरुं धीरं धर्मब्रह्मविदुत्तमम् ॥',
+    transliteration:
+      'vande’haṃ śaṅkarācāryasacchiṣyaṃ jñānasāgaram ∣ sureśvaraṃ guruṃ dhīraṃ dharmabrahmaviduttamam ∥4∥',
+    translation:
+      'I bow to the noble Guru Sureśvara—the true disciple of Śrī Śaṅkarācārya, an ocean of wisdom, steadfast and composed, the supreme knower of Dharma and Brahman.',
+  },
+  {
+    id: '5',
+    name: 'Sri Swayamprakasha Krishna Yogeendra Saraswathi MahaSwamiji',
+    title: 'MAHASWAMIJI',
+    image:
+      'https://www.divyakshetrahariharapura.com/web/assets/img/guru-parampara/g1.jpg',
+    verse:
+      'सौराष्ट्रेषु जनिं प्राप्य दक्षाश्रममुपागताः तुङ्गातीरे तपोनुष्ठा: आदिशङ्करदीक्षिताः । अतोप्यधिकतेजसः श्री कृष्णयोगीन्द्रवराः सदा शिष्योपदेशकाः तान् विनीतो नमाम्यहम् ॥',
+    transliteration:
+      'saurāṣtreṣu janiṃ prāpya dakṣāśramamupāgatāḥ tuṅgātīre taponiṣṭhāḥ ādiśaṅkaradīkṣitāḥ ∣ atopyadhikatejasaḥ śrīkṛṣṇayogīndravarāḥ sadā śiṣyopadeśakāḥ tān vinīto namāmyaham ∥5∥',
+    translation:
+      'Born in the land of Saurāṣṭra and later arriving at the hermitage of Dakṣa, they performed intense austerities on the banks of the river Tuṅgā and were initiated by Ādi Śaṅkarācārya. Among them, the most radiant and exalted was Śrī Kṛṣṇa Yogīndra, ever engaged in mentoring disciples. To that venerable teacher, I bow down with humility.',
+  },
+  {
+    id: '6',
+    name: 'Sri Swayamprakasha Ramananda Saraswathi MahaSwamiji – III',
+    title: 'MAHASWAMIJI',
+    image:
+      'https://www.divyakshetrahariharapura.com/web/assets/img/guru-parampara/g3.jpg',
+    verse:
+      'शारदाकरुणापात्रं रामानन्दयतीश्वरम् । पुङ्गनूरुपुराधीशं सद्गुरुं तमहं भजे ॥',
+    transliteration:
+      'śāradākaruṇāpātraṃ rāmānandayatīśvaram ∣ puṅganūrupurādhīśaṃ sadguruṃ tamahaṃ bhaje ∥27∥',
+    translation:
+      'I worship that noble Guru, Śrī Rāmānanda Yatīśvara—the worthy recipient of Goddess Śāradā’s grace and compassion, the revered spiritual master and head of Puṅganūru.',
+  },
+  {
+    id: '7',
+    name: 'Sri Swayamprakasha Abhinava Ramananda Saraswathi MahaSwamiji',
+    title: 'MAHASWAMIJI',
+    image:
+      'https://www.divyakshetrahariharapura.com/web/assets/img/guru-parampara/g2.jpg',
+    verse:
+      'हरिहरपुराधीशं श्रीचक्रार्चनतत्परम् । सदाभिनवपूर्वं तं रामानन्दगरुं भजे ॥',
+    transliteration:
+      'hariharapurādhīśaṃ śrīcakrārcanatatparam ∣ sadābhinavapūrvaṃ taṃ rāmānandaguruṃ bhaje ∥28∥',
+    translation:
+      'I adore my Guru, Śrī Rāmānanda—the ever-youthful master of Hariharapura, who is deeply devoted to the worship of the sacred Śrīcakra.',
+  },
+];
+
+const QUICK_ACTIONS = [
+  { icon: '🙏', title: 'Darshan', route: '/darshan' },
+  { icon: '📅', title: 'Events', route: '/events' },
+  { icon: '🎫', title: 'Bookings', route: '/bookings' },
+  { icon: '💰', title: 'Donations', route: '/donations' },
+  { icon: '🛕', title: 'Deities', route: '/deities' },
+  { icon: '🪔', title: 'Seva Registration', route: '/seva-registration' },
+];
+
+const DARSHAN_VIDEOS = [
+  {
+    id: 'live-darshan',
+    title: 'Live Darshan',
+    description: 'Experience live darshan and stay connected with the divine presence.',
+    label: 'LIVE NOW',
+    url: 'https://youtu.be/51x9iP4UVik?si=LPEBV5d4IicFU4ks',
+    thumbnail: 'https://img.youtube.com/vi/51x9iP4UVik/hqdefault.jpg',
+    live: true,
+  },
+  {
+    id: 'darshan-experience',
+    title: 'Darshan Experience',
+    description: 'Watch temple darshan, spiritual moments and sacred experiences.',
+    label: 'WATCH',
+    url: '',
+    thumbnail: 'https://www.divyakshetrahariharapura.com/web/assets/img/others/1.jpg',
+    live: false,
+  },
+  {
+    id: 'devotional-videos',
+    title: 'Devotional Videos',
+    description: 'Spiritual talks, devotional content and temple programs.',
+    label: 'COMING SOON',
+    url: '',
+    thumbnail: 'https://www.divyakshetrahariharapura.com/web/assets/img/others/2.jpg',
+    live: false,
   },
 ];
 
 export default function HomeScreen() {
+  const { width } = useWindowDimensions();
   const [events, setEvents] = useState<any[]>([]);
   const [eventsLoading, setEventsLoading] = useState(true);
+  const [scrolled, setScrolled] = useState(false);
+
+  const player = useAudioPlayer(require('@/assets/audio/home-welcome.mp3'), {
+    downloadFirst: true,
+  });
+
+  const playerStatus = useAudioPlayerStatus(player);
+
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const pageFade = useRef(new Animated.Value(0)).current;
+  const pageSlide = useRef(new Animated.Value(24)).current;
+  const heroPulse = useRef(new Animated.Value(0)).current;
+  const omRotate = useRef(new Animated.Value(0)).current;
+  const notificationScale = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(pageFade, {
+        toValue: 1,
+        duration: 750,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.spring(pageSlide, {
+        toValue: 0,
+        tension: 45,
+        friction: 8,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [pageFade, pageSlide]);
+
+  useEffect(() => {
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(heroPulse, {
+          toValue: 1,
+          duration: 1800,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+        Animated.timing(heroPulse, {
+          toValue: 0,
+          duration: 1800,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+
+    const rotate = Animated.loop(
+      Animated.sequence([
+        Animated.timing(omRotate, {
+          toValue: 1,
+          duration: 4200,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+        Animated.timing(omRotate, {
+          toValue: -1,
+          duration: 4200,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+
+    pulse.start();
+    rotate.start();
+
+    return () => {
+      pulse.stop();
+      rotate.stop();
+    };
+  }, [heroPulse, omRotate]);
+
+  useEffect(() => {
+  const startWelcomeAudio = async () => {
+    try {
+      console.log('🔊 Home audio status:', playerStatus);
+
+      await setAudioModeAsync({
+        playsInSilentMode: true,
+        interruptionMode: 'doNotMix',
+      });
+
+      console.log('🎵 Audio mode configured successfully');
+
+      if (!playerStatus.isLoaded) {
+        console.log('⏳ Welcome audio is still loading...');
+        console.log('📁 Audio file: home-welcome.mp3');
+        return;
+      }
+
+      console.log('✅ Welcome audio loaded successfully');
+      console.log('📁 Audio file: home-welcome.mp3');
+      console.log('▶️ Playing temple welcome audio');
+
+      player.volume = 1;
+      player.seekTo(0);
+      player.play();
+
+      console.log('🔊 Temple welcome audio play() called');
+    } catch (error) {
+      console.error('❌ Welcome audio error:', error);
+    }
+  };
+
+  startWelcomeAudio();
+
+  return () => {
+    console.log('🛑 Home audio effect cleanup');
+  };
+}, [playerStatus.isLoaded]);
 
   useEffect(() => {
     loadEvents();
@@ -72,809 +304,2550 @@ export default function HomeScreen() {
     }
   };
 
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    setScrolled(event.nativeEvent.contentOffset.y > 55);
+  };
+
+  const heroScale = scrollY.interpolate({
+    inputRange: [-100, 0, 180],
+    outputRange: [1.08, 1, 0.96],
+    extrapolate: 'clamp',
+  });
+
+  const heroTranslateY = scrollY.interpolate({
+    inputRange: [-100, 0, 180],
+    outputRange: [-18, 0, 24],
+    extrapolate: 'clamp',
+  });
+
+  const headerOpacity = scrollY.interpolate({
+    inputRange: [0, 80],
+    outputRange: [0, 1],
+    extrapolate: 'clamp',
+  });
+
+  const omScale = heroPulse.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 1.09],
+  });
+
+  const omTranslateY = heroPulse.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -4],
+  });
+
+  const omTilt = omRotate.interpolate({
+    inputRange: [-1, 1],
+    outputRange: ['-3deg', '3deg'],
+  });
+
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          styles.floatingHeader,
+          {
+            opacity: headerOpacity,
+            transform: [
+              {
+                translateY: headerOpacity.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [-20, 0],
+                }),
+              },
+            ],
+          },
+        ]}
+      >
+        <View style={styles.floatingHeaderLine} />
+      </Animated.View>
+
+      <Animated.ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.content}
+        scrollEventThrottle={16}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          {
+            useNativeDriver: true,
+            listener: handleScroll,
+          },
+        )}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.greeting}>Welcome 🙏</Text>
-            <Text style={styles.title}>Temple App</Text>
+        <Animated.View
+          style={{
+            opacity: pageFade,
+            transform: [{ translateY: pageSlide }],
+          }}
+        >
+          {/* Header */}
+          <View style={styles.header}>
+            <View style={styles.headerTextWrap}>
+              <Text style={styles.greeting}>WELCOME, DEVOTEE</Text>
+              <View style={styles.titleRow}>
+                <Text style={styles.title}>Divyakshetra</Text>
+                <View style={styles.titleDot} />
+              </View>
+              <Text style={styles.subtitle}>Hariharapura</Text>
+            </View>
+
+            <AnimatedTouchable
+              style={[
+                styles.notificationButton,
+                {
+                  transform: [{ scale: notificationScale }],
+                },
+              ]}
+              onPress={() => router.push('/profile')}
+              onPressIn={() => animatePress(notificationScale, 0.9)}
+              onPressOut={() => animatePress(notificationScale, 1)}
+            >
+              <Text style={styles.notificationIcon}>🔔</Text>
+              <View style={styles.notificationDot} />
+            </AnimatedTouchable>
           </View>
 
-          <TouchableOpacity
-            style={styles.notificationButton}
-            onPress={() => router.push('/profile')}
+          {/* Hero */}
+          <Animated.View
+            style={[
+              styles.banner,
+              {
+                width: width - 40,
+                transform: [
+                  { translateY: heroTranslateY },
+                  { scale: heroScale },
+                ],
+              },
+            ]}
           >
-            <Text style={styles.notificationIcon}>🔔</Text>
-          </TouchableOpacity>
-        </View>
+            <Image
+              source={{
+                uri: 'https://www.divyakshetrahariharapura.com/web/assets/img/guru-parampara/narashimha.jpg',
+              }}
+              style={styles.bannerBackground}
+              resizeMode="cover"
+            />
 
-        {/* Hero */}
-        <View style={styles.banner}>
-          <Text style={styles.om}>ॐ</Text>
-          <Text style={styles.bannerEyebrow}>DIVINE • DEVOTION • SERVICE</Text>
-          <Text style={styles.bannerTitle}>Welcome to Our Temple</Text>
-          <Text style={styles.bannerText}>
-            Connect with devotion, events, spiritual wisdom and temple
-            services.
+            <View style={styles.bannerTint} />
+            <View style={styles.bannerGlow} />
+            <View style={styles.bannerBorder} />
+
+            <View style={styles.bannerDecorTop}>
+              <View style={styles.decorLine} />
+              <Text style={styles.decorDiamond}>◆</Text>
+              <View style={styles.decorLine} />
+            </View>
+
+            <View style={styles.bannerContent}>
+              <Animated.Text
+                style={[
+                  styles.om,
+                  {
+                    transform: [
+                      { translateY: omTranslateY },
+                      { scale: omScale },
+                      { rotate: omTilt },
+                    ],
+                  },
+                ]}
+              >
+                ॐ
+              </Animated.Text>
+
+              <Text style={styles.bannerEyebrow}>
+                DIVINE • DEVOTION • SERVICE
+              </Text>
+
+              <Text style={styles.bannerTitle}>
+                A Sacred Journey{'\n'}Awaits You
+              </Text>
+
+              <Text style={styles.bannerText}>
+                Welcome to Divyakshetra Hariharapura, a sacred spiritual
+                destination on the banks of the Uttaravahini Tunga River.
+              </Text>
+
+              <AnimatedTouchable
+                style={styles.bannerButton}
+                onPress={() => router.push('/darshan')}
+              >
+                <Text style={styles.bannerButtonText}>Explore Temple</Text>
+                <Text style={styles.bannerButtonArrow}>→</Text>
+              </AnimatedTouchable>
+            </View>
+
+            <View style={styles.bannerBottomBadge}>
+              <Text style={styles.bannerBottomBadgeText}>हरिः ॐ</Text>
+            </View>
+          </Animated.View>
+
+          
+
+          {/* Quick Access */}
+          <SectionHeading
+            title="Quick Access"
+            subtitle="Everything you need for your sacred visit"
+          />
+
+          <View style={styles.grid}>
+            {QUICK_ACTIONS.map((item, index) => (
+              <AnimatedQuickAction
+                key={item.title}
+                icon={item.icon}
+                title={item.title}
+                index={index}
+                onPress={() => router.push(item.route as any)}
+              />
+            ))}
+          </View>
+
+          {/* Watch & Experience */}
+          <View style={styles.videoSectionHeader}>
+            <View>
+              <Text style={styles.videoEyebrow}>WATCH & EXPERIENCE</Text>
+              <Text style={styles.videoSectionTitle}>Darshan Videos</Text>
+              <Text style={styles.videoSectionSubtitle}>Feel connected to the divine, wherever you are</Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => router.push('/darshan')}
+              activeOpacity={0.7}
+              style={styles.videoViewAll}
+            >
+              <Text style={styles.viewAll}>View All</Text>
+              <Text style={styles.viewAllArrow}>→</Text>
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.videoList}
+          >
+            {DARSHAN_VIDEOS.map((video, index) => {
+              const openVideo = () => {
+                if (video.url) {
+                  Linking.openURL(video.url);
+                }
+              };
+
+              return (
+                <TouchableOpacity
+                  key={video.id}
+                  activeOpacity={video.url ? 0.82 : 1}
+                  onPress={openVideo}
+                  style={[styles.videoCard, index === DARSHAN_VIDEOS.length - 1 && styles.videoCardLast]}
+                >
+                  <View style={styles.videoThumbnailWrap}>
+                    <Image
+                      source={{ uri: video.thumbnail }}
+                      style={styles.videoThumbnail}
+                      resizeMode="cover"
+                    />
+                    <View style={styles.videoThumbnailShade} />
+
+                    <View style={styles.videoPlayButton}>
+                      <Text style={styles.videoPlayIcon}>▶</Text>
+                    </View>
+
+                    {video.live ? (
+                      <View style={styles.videoLiveBadge}>
+                        <View style={styles.videoLiveDot} />
+                        <Text style={styles.videoLiveText}>LIVE</Text>
+                      </View>
+                    ) : null}
+
+                    {!video.url ? (
+                      <View style={styles.videoComingBadge}>
+                        <Text style={styles.videoComingText}>{video.label}</Text>
+                      </View>
+                    ) : null}
+                  </View>
+
+                  <View style={styles.videoCardBody}>
+                    <Text style={styles.videoCardLabel}>{video.label}</Text>
+                    <Text style={styles.videoCardTitle} numberOfLines={1}>{video.title}</Text>
+                    <Text style={styles.videoCardDescription} numberOfLines={2}>
+                      {video.description}
+                    </Text>
+                    {video.url ? (
+                      <Text style={styles.videoWatchNow}>Watch now  →</Text>
+                    ) : (
+                      <Text style={styles.videoWatchSoon}>Video will be added soon</Text>
+                    )}
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+
+          {/* About Sreemath */}
+          <SectionHeading
+            title="About Sreemath"
+            subtitle="Discover our spiritual heritage"
+          />
+
+          <AnimatedTouchable
+            style={styles.aboutCard}
+            onPress={() => router.push('/about-sreemath')}
+          >
+            <Image
+              source={{
+                uri: 'https://www.divyakshetrahariharapura.com/web/assets/img/guru-parampara/narashimha.jpg',
+              }}
+              style={styles.aboutImage}
+              resizeMode="cover"
+            />
+            <View style={styles.aboutImageShade} />
+            <View style={styles.aboutOverlay}>
+              <View style={styles.imageBadge}>
+                <Text style={styles.imageBadgeText}>SACRED HERITAGE</Text>
+              </View>
+
+              <Text style={styles.aboutLabel}>OUR SPIRITUAL HERITAGE</Text>
+              <Text style={styles.aboutTitle}>Sreemath</Text>
+              <Text style={styles.aboutText}>
+               Sri Adi Shankaracharya Sharada LakshmiNarasimha Peetam
+              </Text>
+
+              <View style={styles.readMore}>
+                <Text style={styles.readMoreText}>Read Full Story</Text>
+                <Text style={styles.readMoreArrow}>→</Text>
+              </View>
+            </View>
+          </AnimatedTouchable>
+
+          {/* Agasthya */}
+          <SectionHeading
+            title="Agasthya"
+            subtitle="Wisdom that inspires the soul"
+          />
+
+          <AnimatedTouchable
+            style={styles.agasthyaCard}
+            onPress={() => router.push('/agasthya')}
+          >
+            <View style={styles.agasthyaGlow} />
+            <View style={styles.agasthyaIconCircle}>
+              <Text style={styles.agasthyaIcon}>ॐ</Text>
+            </View>
+
+            <View style={styles.agasthyaContent}>
+              <Text style={styles.cardEyebrow}>DEVOTIONAL STORIES</Text>
+              <Text style={styles.agasthyaTitle}>
+                Stories, wisdom & spiritual content
+              </Text>
+              <Text style={styles.agasthyaText}>
+                Explore inspiring devotional stories, teachings and timeless
+                spiritual reflections.
+              </Text>
+
+              <View style={styles.smallLink}>
+                <Text style={styles.smallLinkText}>Explore Agasthya</Text>
+                <Text style={styles.smallLinkArrow}>›</Text>
+              </View>
+            </View>
+          </AnimatedTouchable>
+
+          {/* Guru Parampara */}
+          <View style={styles.sectionHeader}>
+            <View>
+              <Text style={styles.sectionTitle}>Guru Parampara</Text>
+              <Text style={styles.sectionMini}>THE SACRED LINEAGE</Text>
+            </View>
+
+            <TouchableOpacity
+              onPress={() => router.push('/guru-parampara')}
+              activeOpacity={0.7}
+              style={styles.viewAllButton}
+            >
+              <Text style={styles.viewAll}>View All</Text>
+              <Text style={styles.viewAllArrow}>→</Text>
+            </TouchableOpacity>
+          </View>
+
+          <Text style={styles.sectionIntro}>
+            Walk through the sacred spiritual lineage and learn about the Gurus.
           </Text>
 
-          <TouchableOpacity
-            style={styles.bannerButton}
-            onPress={() => router.push('/darshan')}
-            activeOpacity={0.85}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.guruScroll}
           >
-            <Text style={styles.bannerButtonText}>Explore Temple</Text>
-            <Text style={styles.bannerButtonArrow}>→</Text>
-          </TouchableOpacity>
-        </View>
+            {GURU_DATA.map((guru, index) => (
+              <AnimatedGuruCard
+                key={guru.id}
+                guru={guru}
+                index={index}
+                onPress={() => router.push('/guru-parampara')}
+              />
+            ))}
+          </ScrollView>
 
-        {/* Quick Actions */}
-        <Text style={styles.sectionTitle}>Quick Access</Text>
-
-        <View style={styles.grid}>
-          <QuickAction icon="🙏" title="Darshan" onPress={() => router.push('/darshan')} />
-          <QuickAction icon="📅" title="Events" onPress={() => router.push('/events')} />
-          <QuickAction icon="🎫" title="Bookings" onPress={() => router.push('/bookings')} />
-          <QuickAction icon="💰" title="Donations" onPress={() => router.push('/donations')} />
-          <QuickAction icon="🛕" title="Deities" onPress={() => router.push('/deities')} />
-          <QuickAction icon="🪔" title="Seva Registration" onPress={() => router.push('/seva-registration')} />
-        </View>
-
-        {/* About Sreemath */}
-        <SectionHeading title="About Sreemath" />
-
-        <TouchableOpacity
-          style={styles.aboutCard}
-          onPress={() => router.push('/about-sreemath')}
-          activeOpacity={0.9}
-        >
-          <Image
-            source={{
-              uri: 'https://images.unsplash.com/photo-1548013146-72479768bada?auto=format&fit=crop&w=1200&q=85',
-            }}
-            style={styles.aboutImage}
-          />
-
-          <View style={styles.aboutOverlay}>
-            <Text style={styles.aboutLabel}>OUR SPIRITUAL HERITAGE</Text>
-            <Text style={styles.aboutTitle}>Sreemath</Text>
-            <Text style={styles.aboutText}>
-              Discover the history, traditions, values and spiritual
-              significance of Sreemath.
-            </Text>
-
-            <View style={styles.readMore}>
-              <Text style={styles.readMoreText}>Read Full Story</Text>
-              <Text style={styles.readMoreArrow}>→</Text>
-            </View>
-          </View>
-        </TouchableOpacity>
-
-        {/* Agasthya */}
-        <SectionHeading title="Agasthya" />
-
-        <TouchableOpacity
-          style={styles.agasthyaCard}
-          onPress={() => router.push('/agasthya')}
-          activeOpacity={0.9}
-        >
-          <View style={styles.agasthyaIconCircle}>
-            <Text style={styles.agasthyaIcon}>ॐ</Text>
-          </View>
-
-          <View style={styles.agasthyaContent}>
-            <Text style={styles.cardEyebrow}>DEVOTIONAL STORIES</Text>
-            <Text style={styles.agasthyaTitle}>
-              Stories, wisdom & spiritual content
-            </Text>
-            <Text style={styles.agasthyaText}>
-              Explore inspiring devotional stories, teachings and timeless
-              spiritual reflections.
-            </Text>
-
-            <View style={styles.smallLink}>
-              <Text style={styles.smallLinkText}>Explore Agasthya</Text>
-              <Text style={styles.smallLinkArrow}>›</Text>
-            </View>
-          </View>
-        </TouchableOpacity>
-
-        {/* Guru Parampara */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Guru Parampara</Text>
-
-          <TouchableOpacity onPress={() => router.push('/guru-parampara')}>
-            <Text style={styles.viewAll}>View All</Text>
-          </TouchableOpacity>
-        </View>
-
-        <Text style={styles.sectionIntro}>
-          Walk through the sacred spiritual lineage and learn about the Gurus.
-        </Text>
-
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.guruScroll}
-        >
-          {GURU_DATA.map((guru) => (
-            <TouchableOpacity
-              key={guru.id}
-              style={styles.guruCard}
-              onPress={() => router.push('/guru-parampara')}
-              activeOpacity={0.9}
-            >
-              <Image source={{ uri: guru.image }} style={styles.guruImage} />
-
-              <View style={styles.guruBody}>
-                <Text style={styles.guruTitle}>{guru.title}</Text>
-                <Text style={styles.guruName}>{guru.name}</Text>
-                <Text style={styles.guruBio} numberOfLines={3}>
-                  {guru.bio}
-                </Text>
-
-                <Text style={styles.guruRead}>Read Biography  →</Text>
+          {/* Room Booking */}
+          <AnimatedTouchable
+            style={styles.roomBookingCard}
+            onPress={() => router.push('/rooms')}
+          >
+            <View style={styles.roomGlow} />
+            <View style={styles.roomBookingContent}>
+              <View style={styles.stayBadge}>
+                <Text style={styles.stayBadgeText}>TEMPLE STAY</Text>
               </View>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
 
-        {/* Room Booking */}
-        <View style={styles.roomBookingCard}>
-          <View style={styles.roomBookingContent}>
-            <Text style={styles.roomBookingLabel}>TEMPLE STAY</Text>
-            <Text style={styles.roomBookingTitle}>Room Booking</Text>
-            <Text style={styles.roomBookingText}>
-              Book a comfortable room for your temple visit.
-            </Text>
+              <Text style={styles.roomBookingTitle}>Room Booking</Text>
+
+              <Text style={styles.roomBookingText}>
+                Stay close to the divine. Book a comfortable room for your
+                temple visit.
+              </Text>
+
+              <View style={styles.roomBookingButton}>
+                <Text style={styles.roomBookingButtonText}>Book a Room</Text>
+                <Text style={styles.roomBookingButtonArrow}>→</Text>
+              </View>
+            </View>
+
+            <View style={styles.roomIconOrb}>
+              <Text style={styles.roomBookingIcon}>🏨</Text>
+            </View>
+          </AnimatedTouchable>
+
+          {/* Upcoming Events */}
+          <View style={styles.sectionHeader}>
+            <View>
+              <Text style={styles.sectionTitle}>Upcoming Events</Text>
+              <Text style={styles.sectionMini}>JOIN THE CELEBRATIONS</Text>
+            </View>
 
             <TouchableOpacity
-              style={styles.roomBookingButton}
-              onPress={() => router.push('/rooms')}
+              onPress={() => router.push('/events')}
+              activeOpacity={0.7}
+              style={styles.viewAllButton}
             >
-              <Text style={styles.roomBookingButtonText}>Book a Room</Text>
+              <Text style={styles.viewAll}>View All</Text>
+              <Text style={styles.viewAllArrow}>→</Text>
             </TouchableOpacity>
           </View>
 
-          <Text style={styles.roomBookingIcon}>🏨</Text>
-        </View>
+          {eventsLoading ? (
+            <EventsSkeleton />
+          ) : events.length > 0 ? (
+            events.map((event, index) => (
+              <AnimatedEventCard
+                key={event.id}
+                index={index}
+                date={
+                  event.event_date
+                    ? new Date(event.event_date)
+                        .toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: '2-digit',
+                        })
+                        .toUpperCase()
+                    : 'DATE'
+                }
+                title={event.title}
+                description={
+                  event.description || 'Join us for this temple event.'
+                }
+                onPress={() => router.push('/events')}
+              />
+            ))
+          ) : (
+            <View style={styles.emptyEventCard}>
+              <Text style={styles.emptyEventIcon}>🪔</Text>
+              <Text style={styles.emptyEventTitle}>No upcoming events</Text>
+              <Text style={styles.emptyEventText}>
+                New temple celebrations will appear here.
+              </Text>
+            </View>
+          )}
 
-        {/* Upcoming Events */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Upcoming Events</Text>
+          {/* Devotional */}
+          <SectionHeading
+            title="Devotional"
+            subtitle="Begin your day with divine remembrance"
+          />
 
-          <TouchableOpacity onPress={() => router.push('/events')}>
-            <Text style={styles.viewAll}>View All</Text>
-          </TouchableOpacity>
-        </View>
+          <AnimatedTouchable
+            style={styles.devotionalCard}
+            onPress={() => router.push('/darshan')}
+          >
+            <View style={styles.devotionalIconCircle}>
+              <Text style={styles.devotionalIcon}>🪔</Text>
+            </View>
 
-        {eventsLoading ? (
-          <Text style={styles.loadingText}>Loading events...</Text>
-        ) : events.length > 0 ? (
-          events.map((event) => (
-            <EventCard
-              key={event.id}
-              date={
-                event.event_date
-                  ? new Date(event.event_date)
-                      .toLocaleDateString('en-US', {
-                        month: 'short',
-                        day: '2-digit',
-                      })
-                      .toUpperCase()
-                  : 'DATE'
-              }
-              title={event.title}
-              description={
-                event.description || 'Join us for this temple event.'
-              }
-              onPress={() => router.push('/events')}
+            <View style={styles.devotionalContent}>
+              <Text style={styles.devotionalTag}>DAILY PRACTICE</Text>
+              <Text style={styles.devotionalTitle}>Daily Prayer</Text>
+              <Text style={styles.devotionalText}>
+                Start your day with prayer, peace and blessings.
+              </Text>
+            </View>
+
+            <View style={styles.devotionalArrowCircle}>
+              <Text style={styles.arrowSmall}>›</Text>
+            </View>
+          </AnimatedTouchable>
+
+          {/* About Us */}
+          <SectionHeading
+            title="About Us"
+            subtitle="Know the sacred place behind the experience"
+          />
+
+          <AnimatedTouchable
+            style={styles.aboutUsCard}
+            onPress={() => router.push('/about')}
+          >
+            {/* Full temple image behind the complete About Us section */}
+            <Image
+              source={{
+                uri: 'https://www.divyakshetrahariharapura.com/web/assets/img/normal/about-img.jpg',
+              }}
+              style={styles.aboutUsFullImage}
+              resizeMode="cover"
             />
-          ))
-        ) : (
-          <Text style={styles.loadingText}>No upcoming events.</Text>
-        )}
 
-        {/* Devotional */}
-        <Text style={styles.sectionTitle}>Devotional</Text>
+            {/* Warm light-brown overlay covers the entire image */}
+            <View style={styles.aboutUsFullOverlay} />
 
-        <TouchableOpacity
-          style={styles.devotionalCard}
-          onPress={() => router.push('/darshan')}
-        >
-          <Text style={styles.devotionalIcon}>🪔</Text>
+            {/* All About Us content sits above the background image */}
+            <View style={styles.aboutUsContent}>
+              <Text style={styles.aboutUsImageCaptionSmall}>
+                DIVYAKSHETRA HARIHARAPURA
+              </Text>
 
-          <View style={styles.devotionalContent}>
-            <Text style={styles.devotionalTitle}>Daily Prayer</Text>
-            <Text style={styles.devotionalText}>
-              Start your day with prayer and blessings.
-            </Text>
+              <Text style={styles.aboutUsImageCaptionTitle}>
+                A Sacred Dharmapeetam
+              </Text>
+
+              <View style={styles.aboutUsDivider} />
+
+              <Text style={styles.aboutUsText}>
+                Sri Adi Shankaracharya Sharada Lakshminarasimha Peetam, located
+                in the ancient puranic Divyakshetra of Hariharapura, Chikmagalur
+                District, Karnataka, is a revered Dharmapeetam directly
+                established by Jagadguru Sri Adi Shankaracharya. This ancient
+                Dharmapeetam venerates Sri LakshmiNarasimha Swamy and Sri
+                Sharada Parameswari as its presiding deities.
+              </Text>
+
+              <Text style={styles.aboutUsText}>
+                With a history dating back to its establishment by Sri Adi
+                Shankaracharya, the Dharmapeetam proudly maintains an unbroken
+                and distinguished lineage of Jagadgurus.
+              </Text>
+
+              <Text style={styles.aboutUsText}>
+                Divyakshetra Hariharapura, a sacred land situated on the banks
+                of the river Tunga, holds profound significance in Vedic
+                literature.
+              </Text>
+
+              <View style={styles.aboutUsReadMore}>
+                <Text style={styles.aboutUsReadMoreText}>Read More</Text>
+                <Text style={styles.aboutUsReadMoreArrow}>→</Text>
+              </View>
+            </View>
+          </AnimatedTouchable>
+
+          {/* Temple Services */}
+          <SectionHeading
+            title="Temple Services"
+            subtitle="Everything for a peaceful pilgrimage"
+          />
+
+          <View style={styles.serviceCard}>
+            <ServiceRow
+              icon="🛕"
+              title="Temple Information"
+              subtitle="Know before you visit"
+              onPress={() => router.push('/about')}
+            />
+            <ServiceRow
+              icon="📿"
+              title="Pooja Services"
+              subtitle="Sacred rituals and offerings"
+              onPress={() => router.push('/pooja')}
+            />
+            <ServiceRow
+              icon="🪔"
+              title="Seva Registration"
+              subtitle="Participate in temple seva"
+              onPress={() => router.push('/seva-registration')}
+            />
+            <ServiceRow
+              icon="📍"
+              title="Temple Location"
+              subtitle="Plan your sacred journey"
+              onPress={() => router.push('/temple-location')}
+            />
+            <ServiceRow
+              icon="☎️"
+              title="Contact Temple"
+              subtitle="Reach the temple team"
+              onPress={() => router.push('/contact')}
+              last
+            />
           </View>
 
-          <Text style={styles.arrow}>›</Text>
-        </TouchableOpacity>
-
-        {/* Temple Services */}
-        <Text style={styles.sectionTitle}>Temple Services</Text>
-
-        <View style={styles.serviceCard}>
-          <ServiceRow
-            icon="🛕"
-            title="Temple Information"
-            onPress={() => router.push('/darshan')}
-          />
-          <ServiceRow
-            icon="📿"
-            title="Pooja Services"
-            onPress={() => router.push('/pooja')}
-          />
-          <ServiceRow
-            icon="🪔"
-            title="Seva Registration"
-            onPress={() => router.push('/seva-registration')}
-          />
-          <ServiceRow
-            icon="📍"
-            title="Temple Location"
-            onPress={() => router.push('/darshan')}
-          />
-          <ServiceRow
-            icon="☎️"
-            title="Contact Temple"
-            onPress={() => router.push('/contact')}
-            last
-          />
-        </View>
-      </ScrollView>
+          <View style={styles.footerBlessing}>
+            <View style={styles.footerLine} />
+            <Text style={styles.footerOm}>ॐ</Text>
+            <Text style={styles.footerText}>MAY YOUR JOURNEY BE DIVINE</Text>
+            <Text style={styles.footerSubtext}>हरिः ॐ तत् सत्</Text>
+            <View style={styles.footerLine} />
+          </View>
+        </Animated.View>
+      </Animated.ScrollView>
     </SafeAreaView>
   );
 }
 
-function SectionHeading({ title }: { title: string }) {
-  return <Text style={styles.sectionTitle}>{title}</Text>;
+function animatePress(value: Animated.Value, toValue: number) {
+  Animated.spring(value, {
+    toValue,
+    tension: 120,
+    friction: 7,
+    useNativeDriver: true,
+  }).start();
 }
 
-function QuickAction({
+function SectionHeading({
+  title,
+  subtitle,
+}: {
+  title: string;
+  subtitle?: string;
+}) {
+  return (
+    <View style={styles.sectionHeadingWrap}>
+      <View style={styles.sectionTitleAccent} />
+      <View>
+        <Text style={styles.sectionTitle}>{title}</Text>
+        {subtitle ? <Text style={styles.sectionSubtitle}>{subtitle}</Text> : null}
+      </View>
+    </View>
+  );
+}
+
+function AnimatedTouchable({
+  children,
+  style,
+  onPress,
+  onPressIn,
+  onPressOut,
+}: {
+  children: React.ReactNode;
+  style?: any;
+  onPress?: () => void;
+  onPressIn?: () => void;
+  onPressOut?: () => void;
+}) {
+  const scale = useRef(new Animated.Value(1)).current;
+
+  const pressIn = () => {
+    Animated.spring(scale, {
+      toValue: 0.975,
+      tension: 180,
+      friction: 8,
+      useNativeDriver: true,
+    }).start();
+    onPressIn?.();
+  };
+
+  const pressOut = () => {
+    Animated.spring(scale, {
+      toValue: 1,
+      tension: 180,
+      friction: 8,
+      useNativeDriver: true,
+    }).start();
+    onPressOut?.();
+  };
+
+  return (
+    <Animated.View style={[style, { transform: [{ scale }] }]}>
+      <TouchableOpacity
+        onPress={onPress}
+        onPressIn={pressIn}
+        onPressOut={pressOut}
+        activeOpacity={1}
+      >
+        {children}
+      </TouchableOpacity>
+    </Animated.View>
+  );
+}
+
+function AnimatedQuickAction({
   icon,
   title,
+  index,
   onPress,
 }: {
   icon: string;
   title: string;
+  index: number;
   onPress: () => void;
 }) {
+  const entrance = useRef(new Animated.Value(0)).current;
+  const scale = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      Animated.parallel([
+        Animated.spring(entrance, {
+          toValue: 1,
+          tension: 55,
+          friction: 8,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }, index * 70);
+
+    return () => clearTimeout(timer);
+  }, [entrance, index]);
+
+  const pressIn = () => animatePress(scale, 0.93);
+  const pressOut = () => animatePress(scale, 1);
+
   return (
-    <TouchableOpacity
-      style={styles.actionCard}
-      onPress={onPress}
-      activeOpacity={0.8}
+    <Animated.View
+      style={[
+        styles.actionCard,
+        {
+          opacity: entrance,
+          transform: [
+            { scale: Animated.multiply(entrance, scale) },
+            {
+              translateY: entrance.interpolate({
+                inputRange: [0, 1],
+                outputRange: [24, 0],
+              }),
+            },
+          ],
+        },
+      ]}
     >
-      <View style={styles.actionIconWrap}>
-        <Text style={styles.actionIcon}>{icon}</Text>
-      </View>
-      <Text style={styles.actionTitle}>{title}</Text>
-    </TouchableOpacity>
+      <TouchableOpacity
+        onPress={onPress}
+        onPressIn={pressIn}
+        onPressOut={pressOut}
+        activeOpacity={1}
+        style={styles.actionTouchable}
+      >
+        <View style={styles.actionShine} />
+        <View style={styles.actionIconWrap}>
+          <Text style={styles.actionIcon}>{icon}</Text>
+        </View>
+        <Text style={styles.actionTitle}>{title}</Text>
+        <Text style={styles.actionArrow}>›</Text>
+      </TouchableOpacity>
+    </Animated.View>
   );
 }
 
-function EventCard({
+function AnimatedGuruCard({
+  guru,
+  index,
+  onPress,
+}: {
+  guru: (typeof GURU_DATA)[number];
+  index: number;
+  onPress: () => void;
+}) {
+  const entrance = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.spring(entrance, {
+      toValue: 1,
+      delay: 100 + index * 90,
+      tension: 55,
+      friction: 8,
+      useNativeDriver: true,
+    }).start();
+  }, [entrance, index]);
+
+  return (
+    <Animated.View
+      style={{
+        opacity: entrance,
+        transform: [
+          {
+            translateX: entrance.interpolate({
+              inputRange: [0, 1],
+              outputRange: [42, 0],
+            }),
+          },
+        ],
+      }}
+    >
+      <AnimatedTouchable
+        style={styles.guruCard}
+        onPress={onPress}
+      >
+        <View>
+          <Image
+            source={{ uri: guru.image }}
+            style={styles.guruImage}
+            resizeMode="contain"
+          />
+          <View style={styles.guruImageOverlay} />
+          <View style={styles.guruImageBadge}>
+            <Text style={styles.guruImageBadgeText}>GURU</Text>
+          </View>
+        </View>
+
+        <View style={styles.guruBody}>
+          <Text style={styles.guruTitle}>{guru.title}</Text>
+          <Text style={styles.guruName} numberOfLines={3}>{guru.name}</Text>
+          <Text style={styles.guruVerse} numberOfLines={3}>
+            {guru.verse}
+          </Text>
+          <Text style={styles.guruTranslation} numberOfLines={3}>
+            “{guru.translation}”
+          </Text>
+
+          <View style={styles.guruReadRow}>
+            <Text style={styles.guruRead}>View Guru Parampara</Text>
+            <Text style={styles.guruReadArrow}>→</Text>
+          </View>
+        </View>
+      </AnimatedTouchable>
+    </Animated.View>
+  );
+}
+
+function AnimatedEventCard({
   date,
   title,
   description,
+  index,
   onPress,
 }: {
   date: string;
   title: string;
   description: string;
+  index: number;
   onPress: () => void;
 }) {
+  const entrance = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.spring(entrance, {
+      toValue: 1,
+      delay: index * 80,
+      tension: 60,
+      friction: 8,
+      useNativeDriver: true,
+    }).start();
+  }, [entrance, index]);
+
   return (
-    <TouchableOpacity
-      style={styles.eventCard}
-      onPress={onPress}
-      activeOpacity={0.8}
+    <Animated.View
+      style={{
+        opacity: entrance,
+        transform: [
+          {
+            translateX: entrance.interpolate({
+              inputRange: [0, 1],
+              outputRange: [-32, 0],
+            }),
+          },
+        ],
+      }}
     >
-      <View style={styles.dateBox}>
-        <Text style={styles.dateText}>{date}</Text>
-      </View>
+      <AnimatedTouchable style={styles.eventCard} onPress={onPress}>
+        <View style={styles.dateBox}>
+          <Text style={styles.dateMonth}>{date.split(' ')[0]}</Text>
+          <Text style={styles.dateDay}>{date.split(' ')[1]}</Text>
+        </View>
 
-      <View style={styles.eventContent}>
-        <Text style={styles.eventTitle}>{title}</Text>
-        <Text style={styles.eventDescription}>{description}</Text>
-      </View>
+        <View style={styles.eventContent}>
+          <View style={styles.eventTagRow}>
+            <View style={styles.eventTagDot} />
+            <Text style={styles.eventTag}>TEMPLE EVENT</Text>
+          </View>
+          <Text style={styles.eventTitle}>{title}</Text>
+          <Text style={styles.eventDescription} numberOfLines={2}>
+            {description}
+          </Text>
+        </View>
 
-      <Text style={styles.arrow}>›</Text>
-    </TouchableOpacity>
+        <View style={styles.eventArrowCircle}>
+          <Text style={styles.arrowSmall}>›</Text>
+        </View>
+      </AnimatedTouchable>
+    </Animated.View>
+  );
+}
+
+function EventsSkeleton() {
+  return (
+    <View style={styles.skeletonWrap}>
+      {[0, 1].map((item) => (
+        <View key={item} style={styles.eventSkeleton}>
+          <View style={styles.skeletonDate} />
+          <View style={styles.skeletonTextWrap}>
+            <View style={styles.skeletonLineShort} />
+            <View style={styles.skeletonLineLong} />
+            <View style={styles.skeletonLineMedium} />
+          </View>
+        </View>
+      ))}
+    </View>
   );
 }
 
 function ServiceRow({
   icon,
   title,
+  subtitle,
   onPress,
   last,
 }: {
   icon: string;
   title: string;
+  subtitle: string;
   onPress: () => void;
   last?: boolean;
 }) {
+  const scale = useRef(new Animated.Value(1)).current;
+
   return (
-    <TouchableOpacity
-      style={[styles.serviceRow, last && styles.lastServiceRow]}
-      onPress={onPress}
-      activeOpacity={0.7}
-    >
-      <Text style={styles.serviceIcon}>{icon}</Text>
-      <Text style={styles.serviceTitle}>{title}</Text>
-      <Text style={styles.arrow}>›</Text>
-    </TouchableOpacity>
+    <Animated.View style={{ transform: [{ scale }] }}>
+      <TouchableOpacity
+        style={[styles.serviceRow, last && styles.lastServiceRow]}
+        onPress={onPress}
+        onPressIn={() => animatePress(scale, 0.985)}
+        onPressOut={() => animatePress(scale, 1)}
+        activeOpacity={1}
+      >
+        <View style={styles.serviceIconCircle}>
+          <Text style={styles.serviceIcon}>{icon}</Text>
+        </View>
+
+        <View style={styles.serviceTextWrap}>
+          <Text style={styles.serviceTitle}>{title}</Text>
+          <Text style={styles.serviceSubtitle}>{subtitle}</Text>
+        </View>
+
+        <View style={styles.serviceArrowCircle}>
+          <Text style={styles.arrowSmall}>›</Text>
+        </View>
+      </TouchableOpacity>
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.bg,
-  },
+container: {
+  flex: 1,
+  backgroundColor: '#FFF7E8',
+},
+
   content: {
-    padding: 20,
-    paddingBottom: 50,
+    width: '100%',
+    maxWidth: 720,
+    alignSelf: 'center',
+    paddingHorizontal: 18,
+    paddingTop: 10,
+    paddingBottom: 70,
   },
+
+  floatingHeader: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 4,
+    zIndex: 20,
+    backgroundColor: COLORS.gold,
+    shadowColor: COLORS.gold,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.28,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+
+  floatingHeaderLine: {
+    flex: 1,
+  },
+
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 20,
+    marginBottom: 18,
+    paddingHorizontal: 2,
   },
+
+  headerTextWrap: {
+    flex: 1,
+    paddingRight: 14,
+  },
+
   greeting: {
-    fontSize: 14,
-    color: COLORS.muted,
-    marginBottom: 3,
-  },
-  title: {
-    fontSize: 28,
+    fontFamily: FONTS.medium,
+    fontSize: 9,
     fontWeight: '800',
-    color: COLORS.brown,
+    letterSpacing: 2.4,
+    color: COLORS.gold,
+    marginBottom: 5,
   },
+
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+
+  title: {
+    fontFamily: FONTS.display,
+    fontSize: 31,
+    lineHeight: 36,
+    fontWeight: '700',
+    color: COLORS.brown,
+    letterSpacing: -0.6,
+  },
+
+  titleDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: COLORS.gold,
+    marginLeft: 8,
+    marginTop: 11,
+  },
+
+  subtitle: {
+    fontFamily: FONTS.medium,
+    fontSize: 14,
+    lineHeight: 19,
+    fontWeight: '600',
+    color: COLORS.darkBrown,
+    letterSpacing: 0.4,
+    marginTop: 1,
+  },
+
   notificationButton: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     backgroundColor: COLORS.white,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: COLORS.line,
-    elevation: 3,
+    borderColor: '#E8D8C3',
+    shadowColor: COLORS.brown,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 6,
   },
+
   notificationIcon: {
-    fontSize: 21,
+    fontSize: 19,
   },
+
+  notificationDot: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#C64732',
+    borderWidth: 1.5,
+    borderColor: COLORS.white,
+  },
+
   banner: {
-    backgroundColor: COLORS.darkBrown,
-    borderRadius: 26,
-    padding: 24,
-    marginBottom: 26,
+    position: 'relative',
     overflow: 'hidden',
+    backgroundColor: '#65151F',
+    borderRadius: 30,
+    marginBottom: 31,
+    minHeight: 405,
+    shadowColor: '#5B1620',
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.23,
+    shadowRadius: 26,
+    elevation: 11,
   },
-  om: {
-    fontSize: 40,
-    color: '#FFD98A',
-    marginBottom: 4,
+
+  bannerBackground: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: '100%',
+    height: '100%',
+    opacity: 0.52,
   },
-  bannerEyebrow: {
-    fontSize: 9,
-    fontWeight: '800',
-    letterSpacing: 1.8,
-    color: '#EBCB9C',
-    marginBottom: 8,
+
+  bannerTint: {
+    position: 'absolute',
+    inset: 0,
+    backgroundColor: 'rgba(70, 8, 18, 0.57)',
   },
-  bannerTitle: {
-    fontSize: 25,
-    fontWeight: '800',
-    color: COLORS.white,
-    marginBottom: 8,
+
+  bannerGlow: {
+    position: 'absolute',
+    width: 310,
+    height: 310,
+    borderRadius: 155,
+    backgroundColor: 'rgba(255, 218, 145, 0.13)',
+    top: -145,
+    right: -105,
   },
-  bannerText: {
-    fontSize: 13,
-    lineHeight: 20,
-    color: '#F9E9D5',
-    marginBottom: 19,
+
+  bannerBorder: {
+    position: 'absolute',
+    top: 9,
+    left: 9,
+    right: 9,
+    bottom: 9,
+    borderRadius: 23,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 224, 158, 0.38)',
   },
-  bannerButton: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#FFF8ED',
-    paddingHorizontal: 17,
-    paddingVertical: 11,
-    borderRadius: 22,
+
+  bannerDecorTop: {
+    position: 'absolute',
+    top: 22,
+    left: 28,
+    right: 28,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
   },
+
+  decorLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: 'rgba(255, 218, 145, 0.30)',
+  },
+
+  decorDiamond: {
+    color: COLORS.goldLight,
+    fontSize: 8,
+    marginHorizontal: 12,
+  },
+
+  bannerContent: {
+    position: 'relative',
+    zIndex: 2,
+    paddingHorizontal: 24,
+    paddingTop: 52,
+    paddingBottom: 38,
+    alignItems: 'center',
+  },
+
+  om: {
+    fontFamily: FONTS.display,
+    fontSize: 64,
+    lineHeight: 76,
+    color: '#FFD98A',
+    textShadowColor: 'rgba(255, 214, 119, 0.55)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 18,
+    marginBottom: 5,
+  },
+
+  bannerEyebrow: {
+    fontFamily: FONTS.medium,
+    fontSize: 8.5,
+    fontWeight: '800',
+    letterSpacing: 2.2,
+    color: '#EBCB9C',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+
+  bannerTitle: {
+    fontFamily: FONTS.display,
+    fontSize: 33,
+    lineHeight: 38,
+    fontWeight: '700',
+    color: COLORS.white,
+    textAlign: 'center',
+    marginBottom: 13,
+    letterSpacing: -0.35,
+  },
+
+  bannerText: {
+    fontFamily: FONTS.body,
+    fontSize: 12.5,
+    lineHeight: 19,
+    color: '#F9E9D5',
+    textAlign: 'center',
+    maxWidth: 330,
+    marginBottom: 24,
+  },
+
+  bannerButton: {
+    backgroundColor: '#FFF8ED',
+    paddingLeft: 21,
+    paddingRight: 14,
+    paddingVertical: 12,
+    borderRadius: 25,
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 7 },
+    shadowOpacity: 0.22,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+
   bannerButtonText: {
+    fontFamily: FONTS.medium,
     color: COLORS.darkBrown,
     fontWeight: '800',
     fontSize: 12,
+    letterSpacing: 0.15,
   },
+
   bannerButtonArrow: {
     color: COLORS.gold,
-    fontSize: 18,
-    marginLeft: 8,
-  },
-  sectionTitle: {
     fontSize: 20,
+    marginLeft: 10,
     fontWeight: '800',
-    color: COLORS.brown,
-    marginBottom: 13,
-    marginTop: 8,
   },
+
+  bannerBottomBadge: {
+    position: 'absolute',
+    bottom: 15,
+    right: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+    backgroundColor: 'rgba(91,18,27,0.52)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,218,145,0.28)',
+  },
+
+  bannerBottomBadgeText: {
+    fontFamily: FONTS.display,
+    color: '#F8D99B',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+
+  sectionHeadingWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 7,
+    marginBottom: 15,
+  },
+
+  sectionTitleAccent: {
+    width: 4,
+    height: 34,
+    borderRadius: 3,
+    backgroundColor: COLORS.gold,
+    marginRight: 11,
+    shadowColor: COLORS.gold,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.22,
+    shadowRadius: 7,
+    elevation: 3,
+  },
+
+  sectionTitle: {
+    fontFamily: FONTS.display,
+    fontSize: 23,
+    lineHeight: 28,
+    fontWeight: '700',
+    color: COLORS.brown,
+    letterSpacing: -0.15,
+  },
+
+  sectionSubtitle: {
+    fontFamily: FONTS.body,
+    fontSize: 10.5,
+    lineHeight: 16,
+    color: COLORS.muted,
+    marginTop: 2,
+  },
+
+  sectionMini: {
+    fontFamily: FONTS.medium,
+    fontSize: 7.5,
+    fontWeight: '800',
+    letterSpacing: 1.7,
+    color: COLORS.gold,
+    marginTop: 3,
+  },
+
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 7,
+    marginBottom: 5,
+  },
+
+  sectionIntro: {
+    fontFamily: FONTS.body,
+    color: COLORS.muted,
+    fontSize: 11.5,
+    lineHeight: 18,
+    marginBottom: 14,
+  },
+
+  viewAllButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingLeft: 8,
+  },
+
+  viewAll: {
+    fontFamily: FONTS.medium,
+    color: COLORS.darkBrown,
+    fontWeight: '800',
+    fontSize: 10.5,
+  },
+
+  viewAllArrow: {
+    color: COLORS.gold,
+    fontSize: 18,
+    marginLeft: 5,
+    fontWeight: '800',
+  },
+
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    marginBottom: 20,
+    marginBottom: 25,
   },
+
   actionCard: {
-    width: '48%',
+    width: '48.4%',
+    minHeight: 132,
     backgroundColor: COLORS.white,
-    borderRadius: 19,
-    paddingVertical: 16,
-    paddingHorizontal: 10,
-    alignItems: 'center',
-    marginBottom: 11,
-    borderWidth: 1,
-    borderColor: '#F0E5D8',
-    elevation: 2,
-  },
-  actionIconWrap: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: COLORS.cream,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 8,
-  },
-  actionIcon: {
-    fontSize: 23,
-  },
-  actionTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: COLORS.brown,
-  },
-  aboutCard: {
-    height: 270,
     borderRadius: 24,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#E9DAC6',
     overflow: 'hidden',
-    marginBottom: 22,
-    backgroundColor: '#6E4025',
+    shadowColor: '#6D3D29',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.09,
+    shadowRadius: 16,
     elevation: 4,
   },
+
+  actionTouchable: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 17,
+    paddingHorizontal: 9,
+  },
+
+  actionShine: {
+    position: 'absolute',
+    top: -45,
+    right: -45,
+    width: 115,
+    height: 115,
+    borderRadius: 58,
+    backgroundColor: 'rgba(184, 135, 46, 0.08)',
+  },
+
+  actionIconWrap: {
+    width: 58,
+    height: 58,
+    borderRadius: 20,
+    backgroundColor: '#FBF0DE',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#E5C99F',
+    shadowColor: COLORS.gold,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 7,
+    elevation: 3,
+    transform: [{ rotate: '2deg' }],
+  },
+
+  actionIcon: {
+    fontSize: 25,
+  },
+
+  actionTitle: {
+    fontFamily: FONTS.medium,
+    fontSize: 12,
+    fontWeight: '800',
+    color: COLORS.brown,
+    textAlign: 'center',
+    letterSpacing: 0.05,
+  },
+
+  actionArrow: {
+    position: 'absolute',
+    top: 11,
+    right: 12,
+    width: 23,
+    height: 23,
+    textAlign: 'center',
+    color: COLORS.gold,
+    fontSize: 19,
+    lineHeight: 22,
+    fontWeight: '800',
+  },
+
+  videoSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    marginBottom: 13,
+  },
+
+  videoEyebrow: {
+    fontFamily: FONTS.medium,
+    color: COLORS.gold,
+    fontSize: 8.5,
+    fontWeight: '900',
+    letterSpacing: 1.8,
+    marginBottom: 3,
+  },
+
+  videoSectionTitle: {
+    fontFamily: FONTS.display,
+    color: COLORS.brown,
+    fontSize: 23,
+    fontWeight: '700',
+  },
+
+  videoSectionSubtitle: {
+    fontFamily: FONTS.body,
+    color: COLORS.muted,
+    fontSize: 10.5,
+    marginTop: 3,
+    maxWidth: 235,
+  },
+
+  videoViewAll: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingBottom: 2,
+    paddingLeft: 8,
+  },
+
+  videoList: {
+    paddingBottom: 25,
+  },
+
+  videoCard: {
+    width: 285,
+    marginRight: 13,
+    backgroundColor: COLORS.white,
+    borderRadius: 23,
+    borderWidth: 1,
+    borderColor: COLORS.line,
+    overflow: 'hidden',
+    shadowColor: COLORS.brown,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.10,
+    shadowRadius: 14,
+    elevation: 4,
+  },
+
+  videoCardLast: {
+    marginRight: 18,
+  },
+
+  videoThumbnailWrap: {
+    height: 158,
+    backgroundColor: COLORS.cream,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+
+  videoThumbnail: {
+    width: '100%',
+    height: '100%',
+  },
+
+  videoThumbnailShade: {
+    position: 'absolute',
+    inset: 0,
+    backgroundColor: 'rgba(55, 18, 18, 0.28)',
+  },
+
+  videoPlayButton: {
+    position: 'absolute',
+    left: '50%',
+    top: '50%',
+    marginLeft: -25,
+    marginTop: -25,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: 'rgba(255,248,237,0.95)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.75)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.20,
+    shadowRadius: 9,
+    elevation: 5,
+  },
+
+  videoPlayIcon: {
+    color: COLORS.darkBrown,
+    fontSize: 19,
+    marginLeft: 3,
+  },
+
+  videoLiveBadge: {
+    position: 'absolute',
+    left: 12,
+    top: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 9,
+    paddingVertical: 6,
+    borderRadius: 13,
+    backgroundColor: 'rgba(116,27,34,0.94)',
+  },
+
+  videoLiveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#FFFFFF',
+    marginRight: 5,
+  },
+
+  videoLiveText: {
+    color: COLORS.white,
+    fontSize: 8,
+    fontWeight: '900',
+    letterSpacing: 1,
+  },
+
+  videoComingBadge: {
+    position: 'absolute',
+    left: 12,
+    top: 12,
+    paddingHorizontal: 9,
+    paddingVertical: 6,
+    borderRadius: 13,
+    backgroundColor: 'rgba(255,248,237,0.94)',
+  },
+
+  videoComingText: {
+    color: COLORS.darkBrown,
+    fontSize: 7.5,
+    fontWeight: '900',
+    letterSpacing: 0.8,
+  },
+
+  videoCardBody: {
+    padding: 14,
+    paddingBottom: 16,
+  },
+
+  videoCardLabel: {
+    fontFamily: FONTS.medium,
+    color: COLORS.gold,
+    fontSize: 7.5,
+    fontWeight: '900',
+    letterSpacing: 1.1,
+    marginBottom: 5,
+  },
+
+  videoCardTitle: {
+    fontFamily: FONTS.display,
+    color: COLORS.brown,
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 5,
+  },
+
+  videoCardDescription: {
+    fontFamily: FONTS.body,
+    color: COLORS.muted,
+    fontSize: 10.5,
+    lineHeight: 15,
+    minHeight: 30,
+  },
+
+  videoWatchNow: {
+    fontFamily: FONTS.medium,
+    color: COLORS.darkBrown,
+    fontSize: 9.5,
+    fontWeight: '900',
+    marginTop: 10,
+  },
+
+  videoWatchSoon: {
+    fontFamily: FONTS.medium,
+    color: COLORS.muted,
+    fontSize: 8.5,
+    fontWeight: '700',
+    marginTop: 10,
+  },
+
+  aboutCard: {
+    height: 305,
+    borderRadius: 27,
+    overflow: 'hidden',
+    marginBottom: 26,
+    backgroundColor: '#6E4025',
+    shadowColor: COLORS.brown,
+    shadowOffset: { width: 0, height: 11 },
+    shadowOpacity: 0.20,
+    shadowRadius: 19,
+    elevation: 8,
+  },
+
   aboutImage: {
     width: '100%',
     height: '100%',
   },
+
+  aboutImageShade: {
+    position: 'absolute',
+    inset: 0,
+    backgroundColor: 'rgba(70, 19, 18, 0.22)',
+  },
+
   aboutOverlay: {
     position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
     padding: 20,
-    paddingTop: 70,
-    backgroundColor: 'rgba(55, 28, 12, 0.72)',
+    paddingTop: 200,
+    backgroundColor: 'rgba(67, 24, 21, 0.72)',
   },
+
+  imageBadge: {
+    position: 'absolute',
+    right: 18,
+    top: -31,
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,248,237,0.95)',
+    borderWidth: 1,
+    borderColor: '#E9D2B0',
+    shadowColor: COLORS.brown,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+
+  imageBadgeText: {
+    fontFamily: FONTS.medium,
+    color: COLORS.darkBrown,
+    fontSize: 7.5,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+  },
+
   aboutLabel: {
-    fontSize: 9,
+    fontFamily: FONTS.medium,
+    fontSize: 8,
     fontWeight: '800',
-    letterSpacing: 1.4,
+    letterSpacing: 1.7,
     color: '#F2D29D',
-    marginBottom: 4,
+    marginBottom: 5,
   },
+
   aboutTitle: {
-    fontSize: 25,
-    fontWeight: '800',
+    fontFamily: FONTS.display,
+    fontSize: 29,
+    fontWeight: '700',
     color: COLORS.white,
     marginBottom: 5,
   },
+
   aboutText: {
-    fontSize: 12,
+    fontFamily: FONTS.body,
+    fontSize: 11.5,
     lineHeight: 18,
     color: '#FFF3E5',
-    marginBottom: 12,
+    marginBottom: 11,
   },
+
   readMore: {
     flexDirection: 'row',
     alignItems: 'center',
   },
+
   readMoreText: {
+    fontFamily: FONTS.medium,
     color: '#FFD98A',
     fontWeight: '800',
-    fontSize: 12,
+    fontSize: 11.5,
   },
+
   readMoreArrow: {
     color: '#FFD98A',
     fontSize: 18,
     marginLeft: 7,
   },
+
   agasthyaCard: {
+    position: 'relative',
     flexDirection: 'row',
-    backgroundColor: '#FFFDF9',
-    borderRadius: 23,
+    backgroundColor: '#FFFEFB',
+    borderRadius: 25,
     padding: 17,
-    marginBottom: 23,
+    marginBottom: 27,
     borderWidth: 1,
-    borderColor: '#EADBC8',
-    elevation: 2,
+    borderColor: '#E8D8C4',
+    overflow: 'hidden',
+    shadowColor: COLORS.brown,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 4,
   },
+
+  agasthyaGlow: {
+    position: 'absolute',
+    width: 190,
+    height: 190,
+    borderRadius: 95,
+    right: -85,
+    top: -70,
+    backgroundColor: 'rgba(197,138,42,0.10)',
+  },
+
   agasthyaIconCircle: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
+    width: 66,
+    height: 66,
+    borderRadius: 22,
     backgroundColor: COLORS.cream,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 14,
+    borderWidth: 1,
+    borderColor: '#E5CDAF',
+    shadowColor: COLORS.gold,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 2,
+    transform: [{ rotate: '-2deg' }],
   },
+
   agasthyaIcon: {
-    fontSize: 28,
+    fontFamily: FONTS.display,
+    fontSize: 31,
     color: COLORS.gold,
   },
+
   agasthyaContent: {
     flex: 1,
   },
+
   cardEyebrow: {
-    fontSize: 8,
+    fontFamily: FONTS.medium,
+    fontSize: 7.5,
     fontWeight: '800',
-    letterSpacing: 1.3,
+    letterSpacing: 1.5,
     color: COLORS.gold,
     marginBottom: 4,
   },
+
   agasthyaTitle: {
-    fontSize: 17,
-    fontWeight: '800',
+    fontFamily: FONTS.display,
+    fontSize: 18,
+    lineHeight: 23,
+    fontWeight: '700',
     color: COLORS.brown,
     marginBottom: 5,
   },
+
   agasthyaText: {
+    fontFamily: FONTS.body,
     fontSize: 11,
     lineHeight: 17,
     color: COLORS.muted,
   },
+
   smallLink: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: 9,
   },
+
   smallLinkText: {
+    fontFamily: FONTS.medium,
     fontSize: 11,
     fontWeight: '800',
     color: COLORS.darkBrown,
   },
+
   smallLinkArrow: {
     fontSize: 20,
     color: COLORS.gold,
     marginLeft: 5,
   },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  viewAll: {
-    color: COLORS.gold,
-    fontWeight: '800',
-    fontSize: 12,
-    marginBottom: 13,
-  },
-  sectionIntro: {
-    color: COLORS.muted,
-    fontSize: 12,
-    lineHeight: 18,
-    marginTop: -7,
-    marginBottom: 13,
-  },
+
   guruScroll: {
     paddingRight: 8,
-    paddingBottom: 5,
-    marginBottom: 22,
+    paddingBottom: 10,
+    marginBottom: 23,
   },
+
   guruCard: {
-    width: 225,
+    width: 244,
     backgroundColor: COLORS.white,
-    borderRadius: 22,
+    borderRadius: 25,
     overflow: 'hidden',
-    marginRight: 13,
+    marginRight: 14,
     borderWidth: 1,
-    borderColor: '#EADBC8',
-    elevation: 3,
+    borderColor: '#E8D8C4',
+    shadowColor: COLORS.brown,
+    shadowOffset: { width: 0, height: 9 },
+    shadowOpacity: 0.10,
+    shadowRadius: 16,
+    elevation: 5,
   },
+
   guruImage: {
     width: '100%',
-    height: 145,
+    height: 158,
     backgroundColor: COLORS.cream,
   },
-  guruBody: {
-    padding: 14,
+
+  guruImageOverlay: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 80,
+    backgroundColor: 'rgba(86, 31, 25, 0.22)',
   },
-  guruTitle: {
-    fontSize: 9,
+
+  guruImageBadge: {
+    position: 'absolute',
+    top: 12,
+    left: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,248,237,0.94)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.65)',
+  },
+
+  guruImageBadgeText: {
+    fontFamily: FONTS.medium,
+    fontSize: 7,
     fontWeight: '800',
-    letterSpacing: 1.2,
+    letterSpacing: 1.25,
+    color: COLORS.darkBrown,
+  },
+
+  guruBody: {
+    padding: 15,
+  },
+
+  guruTitle: {
+    fontFamily: FONTS.medium,
+    fontSize: 8,
+    fontWeight: '800',
+    letterSpacing: 1.25,
     color: COLORS.gold,
     marginBottom: 3,
   },
+
   guruName: {
-    fontSize: 17,
-    fontWeight: '800',
+    fontFamily: FONTS.display,
+    fontSize: 19,
+    fontWeight: '700',
     color: COLORS.brown,
     marginBottom: 6,
   },
+
+  guruVerse: {
+    fontFamily: FONTS.body,
+    fontSize: 11,
+    lineHeight: 17,
+    color: COLORS.brown,
+    marginTop: 6,
+  },
+
+  guruTranslation: {
+    fontFamily: FONTS.body,
+    fontSize: 10,
+    lineHeight: 15,
+    color: COLORS.muted,
+    marginTop: 5,
+  },
+
   guruBio: {
+    fontFamily: FONTS.body,
     fontSize: 11,
     lineHeight: 17,
     color: COLORS.muted,
-    minHeight: 50,
+    minHeight: 51,
   },
+
+  guruReadRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 11,
+  },
+
   guruRead: {
+    fontFamily: FONTS.medium,
     fontSize: 10,
     fontWeight: '800',
     color: COLORS.darkBrown,
-    marginTop: 10,
   },
+
+  guruReadArrow: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: COLORS.gold,
+    marginLeft: 5,
+  },
+
   roomBookingCard: {
-    backgroundColor: '#F3DEC5',
-    borderRadius: 22,
-    padding: 18,
-    marginBottom: 24,
+    position: 'relative',
+    backgroundColor: '#F2DDC4',
+    borderRadius: 25,
+    padding: 19,
+    marginBottom: 28,
     flexDirection: 'row',
     alignItems: 'center',
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#E3C5A0',
+    shadowColor: COLORS.brown,
+    shadowOffset: { width: 0, height: 9 },
+    shadowOpacity: 0.10,
+    shadowRadius: 17,
+    elevation: 5,
   },
+
+  roomGlow: {
+    position: 'absolute',
+    width: 230,
+    height: 230,
+    borderRadius: 115,
+    right: -110,
+    top: -90,
+    backgroundColor: 'rgba(255,255,255,0.30)',
+  },
+
   roomBookingContent: {
     flex: 1,
+    zIndex: 2,
   },
-  roomBookingLabel: {
-    fontSize: 9,
+
+  stayBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(255,255,255,0.62)',
+    borderRadius: 11,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    marginBottom: 7,
+  },
+
+  stayBadgeText: {
+    fontFamily: FONTS.medium,
+    fontSize: 7.5,
     fontWeight: '800',
-    letterSpacing: 1,
-    color: '#A66A3D',
-    marginBottom: 5,
+    letterSpacing: 1.1,
+    color: '#9B6338',
   },
+
   roomBookingTitle: {
-    fontSize: 20,
-    fontWeight: '800',
+    fontFamily: FONTS.display,
+    fontSize: 23,
+    fontWeight: '700',
     color: COLORS.brown,
     marginBottom: 5,
   },
+
   roomBookingText: {
+    fontFamily: FONTS.body,
     fontSize: 11,
-    lineHeight: 16,
+    lineHeight: 17,
     color: COLORS.muted,
     marginBottom: 12,
+    maxWidth: 250,
   },
+
   roomBookingButton: {
     alignSelf: 'flex-start',
     backgroundColor: COLORS.darkBrown,
-    borderRadius: 18,
-    paddingHorizontal: 17,
-    paddingVertical: 9,
+    borderRadius: 20,
+    paddingLeft: 16,
+    paddingRight: 12,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: COLORS.darkBrown,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.20,
+    shadowRadius: 7,
+    elevation: 4,
   },
+
   roomBookingButtonText: {
+    fontFamily: FONTS.medium,
     color: COLORS.white,
-    fontSize: 11,
+    fontSize: 10.5,
     fontWeight: '800',
   },
+
+  roomBookingButtonArrow: {
+    color: '#FFD98A',
+    fontSize: 15,
+    marginLeft: 7,
+    fontWeight: '800',
+  },
+
+  roomIconOrb: {
+    width: 84,
+    height: 84,
+    borderRadius: 42,
+    backgroundColor: 'rgba(255,255,255,0.52)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 9,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.62)',
+    shadowColor: '#FFFFFF',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+
   roomBookingIcon: {
-    fontSize: 48,
-    marginLeft: 10,
+    fontSize: 42,
   },
-  loadingText: {
-    fontSize: 12,
-    color: COLORS.muted,
-    textAlign: 'center',
-    marginBottom: 18,
+
+  skeletonWrap: {
+    marginBottom: 20,
   },
+
+  eventSkeleton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.white,
+    borderRadius: 20,
+    padding: 14,
+    marginBottom: 11,
+    borderWidth: 1,
+    borderColor: '#F0E5D8',
+  },
+
+  skeletonDate: {
+    width: 60,
+    height: 62,
+    borderRadius: 16,
+    backgroundColor: '#F1E5D6',
+    marginRight: 13,
+  },
+
+  skeletonTextWrap: {
+    flex: 1,
+  },
+
+  skeletonLineShort: {
+    width: '30%',
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: '#F1E5D6',
+    marginBottom: 8,
+  },
+
+  skeletonLineLong: {
+    width: '82%',
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#F1E5D6',
+    marginBottom: 8,
+  },
+
+  skeletonLineMedium: {
+    width: '62%',
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#F1E5D6',
+  },
+
   eventCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: COLORS.white,
-    borderRadius: 18,
-    padding: 14,
-    marginBottom: 12,
+    borderRadius: 21,
+    padding: 13,
+    marginBottom: 11,
     borderWidth: 1,
-    borderColor: '#F0E5D8',
-    elevation: 2,
+    borderColor: '#EADFD2',
+    shadowColor: COLORS.brown,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.075,
+    shadowRadius: 13,
+    elevation: 3,
   },
+
   dateBox: {
-    width: 58,
-    height: 58,
-    borderRadius: 14,
+    width: 61,
+    height: 64,
+    borderRadius: 17,
     backgroundColor: COLORS.cream,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 13,
+    borderWidth: 1,
+    borderColor: '#E6CAA2',
   },
-  dateText: {
-    fontSize: 12,
+
+  dateMonth: {
+    fontFamily: FONTS.medium,
+    fontSize: 9,
     fontWeight: '800',
+    letterSpacing: 1,
+    color: COLORS.gold,
+  },
+
+  dateDay: {
+    fontFamily: FONTS.display,
+    fontSize: 21,
+    lineHeight: 25,
+    fontWeight: '700',
     color: COLORS.darkBrown,
   },
+
   eventContent: {
     flex: 1,
+    paddingRight: 7,
   },
+
+  eventTagRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+
+  eventTagDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: COLORS.gold,
+    marginRight: 5,
+  },
+
+  eventTag: {
+    fontFamily: FONTS.medium,
+    fontSize: 7,
+    fontWeight: '800',
+    letterSpacing: 1,
+    color: COLORS.gold,
+  },
+
   eventTitle: {
-    fontSize: 16,
-    fontWeight: '800',
+    fontFamily: FONTS.display,
+    fontSize: 16.5,
+    fontWeight: '700',
     color: COLORS.brown,
-    marginBottom: 4,
+    marginBottom: 3,
   },
+
   eventDescription: {
-    fontSize: 12,
+    fontFamily: FONTS.body,
+    fontSize: 11,
     color: COLORS.muted,
-    lineHeight: 18,
+    lineHeight: 16,
   },
-  devotionalCard: {
-    flexDirection: 'row',
+
+  eventArrowCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#FFF8ED',
     alignItems: 'center',
-    backgroundColor: COLORS.cream,
-    borderRadius: 19,
-    padding: 16,
-    marginBottom: 22,
+    justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#E8D4BB',
+    borderColor: '#ECDCC8',
   },
-  devotionalIcon: {
-    fontSize: 30,
-    marginRight: 14,
+
+  arrowSmall: {
+    fontSize: 22,
+    lineHeight: 23,
+    color: COLORS.darkBrown,
+    fontWeight: '500',
   },
-  devotionalContent: {
-    flex: 1,
-  },
-  devotionalTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: COLORS.brown,
-    marginBottom: 4,
-  },
-  devotionalText: {
-    fontSize: 12,
-    color: '#6E5542',
-  },
-  serviceCard: {
+
+  emptyEventCard: {
+    alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: COLORS.white,
-    borderRadius: 19,
-    paddingHorizontal: 15,
+    borderRadius: 21,
+    padding: 26,
+    marginBottom: 23,
     borderWidth: 1,
-    borderColor: '#F0E5D8',
+    borderColor: COLORS.line,
   },
-  serviceRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0E9E0',
+
+  emptyEventIcon: {
+    fontSize: 28,
+    marginBottom: 7,
   },
-  lastServiceRow: {
-    borderBottomWidth: 0,
-  },
-  serviceIcon: {
-    fontSize: 21,
-    width: 40,
-  },
-  serviceTitle: {
-    flex: 1,
-    fontSize: 14,
+
+  emptyEventTitle: {
+    fontFamily: FONTS.display,
+    fontSize: 16,
     fontWeight: '700',
     color: COLORS.brown,
   },
-  arrow: {
+
+  emptyEventText: {
+    fontFamily: FONTS.body,
+    fontSize: 11,
+    color: COLORS.muted,
+    marginTop: 4,
+  },
+
+  devotionalCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF8EA',
+    borderRadius: 25,
+    padding: 16,
+    marginBottom: 27,
+    borderWidth: 1,
+    borderColor: '#E7CFAB',
+    shadowColor: '#8A5A2E',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 4,
+  },
+
+  devotionalIconCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 20,
+    backgroundColor: '#FFFDF8',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 14,
+    borderWidth: 1,
+    borderColor: '#E3C18E',
+    shadowColor: COLORS.gold,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.17,
+    shadowRadius: 8,
+    elevation: 3,
+    transform: [{ rotate: '2deg' }],
+  },
+
+  devotionalIcon: {
     fontSize: 28,
-    color: '#A89483',
+  },
+
+  devotionalContent: {
+    flex: 1,
+  },
+
+  devotionalTag: {
+    fontFamily: FONTS.medium,
+    fontSize: 7.5,
+    fontWeight: '800',
+    letterSpacing: 1.4,
+    color: COLORS.gold,
+    marginBottom: 4,
+  },
+
+  devotionalTitle: {
+    fontFamily: FONTS.display,
+    fontSize: 19,
+    fontWeight: '700',
+    color: COLORS.brown,
+    marginBottom: 4,
+  },
+
+  devotionalText: {
+    fontFamily: FONTS.body,
+    fontSize: 11,
+    lineHeight: 16,
+    color: '#6E5542',
+  },
+
+  devotionalArrowCircle: {
+    width: 37,
+    height: 37,
+    borderRadius: 19,
+    backgroundColor: '#FFFDF8',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#E8D5B7',
+  },
+aboutUsCard: {
+    position: 'relative',
+    minHeight: 515,
+    borderRadius: 26,
+    overflow: 'hidden',
+    marginBottom: 30,
+
+    backgroundColor: '#8A5A38',
+
+    borderWidth: 1,
+    borderColor: '#D8B982',
+
+    shadowColor: '#4A2417',
+    shadowOffset: { width: 0, height: 11 },
+    shadowOpacity: 0.20,
+    shadowRadius: 20,
+    elevation: 7,
+  },
+
+  aboutUsFullImage: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+
+    width: '100%',
+    height: '100%',
+  },
+
+  aboutUsFullOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+
+    // Light-brown transparent layer over the COMPLETE image.
+    backgroundColor: 'rgba(105, 65, 40, 0.70)',
+  },
+
+  aboutUsContent: {
+    position: 'relative',
+    zIndex: 2,
+
+    paddingHorizontal: 20,
+    paddingTop: 24,
+    paddingBottom: 25,
+  },
+
+  aboutUsImageCaptionSmall: {
+    fontFamily: FONTS.medium,
+    color: '#F4D99A',
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 2,
+    marginBottom: 6,
+    textTransform: 'uppercase',
+  },
+
+  aboutUsImageCaptionTitle: {
+    fontFamily: FONTS.display,
+    color: COLORS.white,
+    fontSize: 25,
+    lineHeight: 32,
+    fontWeight: '900',
+    letterSpacing: 0.2,
+
+    textShadowColor: 'rgba(0,0,0,0.45)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 5,
+  },
+
+  aboutUsDivider: {
+    width: 55,
+    height: 3,
+    borderRadius: 10,
+    backgroundColor: '#E7C477',
+    marginTop: 13,
+    marginBottom: 18,
+  },
+
+  aboutUsText: {
+    fontFamily: FONTS.body,
+    fontSize: 14,
+    lineHeight: 22.5,
+    fontWeight: '500',
+    color: '#FFF8EC',
+    marginBottom: 15,
+    letterSpacing: 0.1,
+
+    textShadowColor: 'rgba(0,0,0,0.20)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+
+  aboutUsReadMore: {
+    alignSelf: 'flex-start',
+
+    flexDirection: 'row',
+    alignItems: 'center',
+
+    marginTop: 4,
+
+    paddingHorizontal: 17,
+    paddingVertical: 10,
+
+    borderRadius: 24,
+
+    backgroundColor: '#7A1F27',
+
+    borderWidth: 1,
+    borderColor: '#E7C477',
+
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 7,
+    elevation: 4,
+  },
+
+  aboutUsReadMoreText: {
+    fontFamily: FONTS.medium,
+    fontSize: 12.5,
+    fontWeight: '800',
+    color: COLORS.white,
+    letterSpacing: 0.3,
+  },
+
+  aboutUsReadMoreArrow: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#F4D38A',
     marginLeft: 8,
+  },
+
+  serviceCard: {
+    backgroundColor: '#FFFEFC',
+    borderRadius: 25,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: '#E8D8C4',
+    shadowColor: '#75462F',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.075,
+    shadowRadius: 16,
+    elevation: 4,
+    overflow: 'hidden',
+  },
+
+  serviceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1E9DF',
+  },
+
+  lastServiceRow: {
+    borderBottomWidth: 0,
+  },
+
+  serviceIconCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 17,
+    backgroundColor: '#FBF0DF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 13,
+    borderWidth: 1,
+    borderColor: '#E6CDA8',
+    shadowColor: COLORS.gold,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.10,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+
+  serviceIcon: {
+    fontSize: 20,
+  },
+
+  serviceTextWrap: {
+    flex: 1,
+  },
+
+  serviceTitle: {
+    fontFamily: FONTS.medium,
+    fontSize: 13.5,
+    fontWeight: '800',
+    color: COLORS.brown,
+  },
+
+  serviceSubtitle: {
+    fontFamily: FONTS.body,
+    fontSize: 9.5,
+    color: COLORS.muted,
+    marginTop: 2,
+  },
+
+  serviceArrowCircle: {
+    width: 33,
+    height: 33,
+    borderRadius: 17,
+    backgroundColor: '#FFF8EC',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#EBD9BD',
+  },
+
+  footerBlessing: {
+    alignItems: 'center',
+    marginTop: 38,
+    marginBottom: 10,
+  },
+
+  footerLine: {
+    width: 78,
+    height: 1,
+    backgroundColor: '#E3CCAE',
+    marginVertical: 8,
+  },
+
+  footerOm: {
+    fontFamily: FONTS.display,
+    fontSize: 32,
+    color: COLORS.gold,
+    marginBottom: 2,
+  },
+
+  footerText: {
+    fontFamily: FONTS.medium,
+    fontSize: 7.5,
+    fontWeight: '800',
+    letterSpacing: 1.8,
+    color: COLORS.muted,
+  },
+
+  footerSubtext: {
+    fontFamily: FONTS.display,
+    fontSize: 11,
+    fontWeight: '700',
+    color: COLORS.darkBrown,
+    marginTop: 7,
   },
 });
