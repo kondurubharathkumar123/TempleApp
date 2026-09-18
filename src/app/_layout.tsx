@@ -23,6 +23,7 @@ export default function RootLayout() {
         <Stack.Screen name="pooja-confirmation" />
 
         <Stack.Screen name="darshan" />
+         <Stack.Screen name="darshan-videos" />
         <Stack.Screen name="events" />
         <Stack.Screen name="bookings" />
         <Stack.Screen name="donations" />

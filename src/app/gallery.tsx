@@ -3,6 +3,8 @@ import React, {
   useEffect,
   useState,
 } from 'react';
+import { Share } from 'react-native';
+import * as FileSystem from 'expo-file-system/legacy';
 
 import {
   ActivityIndicator,
@@ -154,6 +156,104 @@ export default function GalleryScreen() {
     selectedImageIndex !== null
       ? galleryItems[selectedImageIndex]
       : null;
+
+  const [imageActionLoading, setImageActionLoading] = useState<
+    'share' | 'download' | null
+  >(null);
+
+  const getImageFileUri = async (imageUrl: string) => {
+    const remoteUrl = getImageUrl(imageUrl);
+    const extensionMatch = remoteUrl.match(/\.(jpg|jpeg|png|webp)(?:\?|$)/i);
+    const extension = extensionMatch?.[1]?.toLowerCase() || 'jpg';
+    const fileName = `temple-gallery-${Date.now()}.${extension}`;
+    const localUri = `${FileSystem.cacheDirectory}${fileName}`;
+
+    const result = await FileSystem.downloadAsync(remoteUrl, localUri);
+    return result.uri;
+  };
+
+  const shareSelectedImage = async () => {
+    if (!selectedImage) return;
+
+    try {
+      setImageActionLoading('share');
+
+      const localUri = await getImageFileUri(selectedImage.image_url);
+
+      // On iOS this shares the local image file directly.
+      // On Android, Sharing via the native share sheet is also supported
+      // through the file URI returned by Expo FileSystem.
+      await Share.share({
+        title: selectedImage.title || 'Temple Gallery Image',
+        message: selectedImage.title || 'Temple Gallery',
+        url: localUri,
+      });
+    } catch (err) {
+      console.error('Gallery image share error:', err);
+    } finally {
+      setImageActionLoading(null);
+    }
+  };
+
+  const downloadSelectedImage = async () => {
+    if (!selectedImage) return;
+
+    try {
+      setImageActionLoading('download');
+
+      const localUri = await getImageFileUri(selectedImage.image_url);
+
+      // Android: let the user choose where to save the image.
+      // This avoids expo-media-library and therefore does not require
+      // the ExpoMediaLibraryNext native module.
+      if (FileSystem.StorageAccessFramework) {
+        const permissions =
+          await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
+
+        if (!permissions.granted) {
+          return;
+        }
+
+        const remoteUrl = getImageUrl(selectedImage.image_url);
+        const extensionMatch = remoteUrl.match(
+          /\\.(jpg|jpeg|png|webp)(?:\\?|$)/i,
+        );
+        const extension = extensionMatch?.[1]?.toLowerCase() || 'jpg';
+
+        const safeTitle = (selectedImage.title || 'temple-gallery-image')
+          .replace(/[^a-zA-Z0-9-_ ]/g, '')
+          .trim()
+          .replace(/\\s+/g, '-')
+          .slice(0, 50);
+
+        const fileName = `${safeTitle || 'temple-gallery-image'}-${Date.now()}.${extension}`;
+
+        const fileContent = await FileSystem.readAsStringAsync(localUri, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+
+        const destinationUri =
+          await FileSystem.StorageAccessFramework.createFileAsync(
+            permissions.directoryUri,
+            fileName,
+            `image/${extension === 'jpg' ? 'jpeg' : extension}`,
+          );
+
+        await FileSystem.writeAsStringAsync(destinationUri, fileContent, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+
+        return;
+      }
+
+      // Fallback for platforms without Storage Access Framework.
+      console.warn('Storage Access Framework is not available on this platform.');
+    } catch (err) {
+      console.error('Gallery image download error:', err);
+    } finally {
+      setImageActionLoading(null);
+    }
+  };
 
   /*
    * First 5 images are used on the main Gallery page.
@@ -812,6 +912,42 @@ export default function GalleryScreen() {
               </Text>
             </Pressable>
           )}
+
+          {/* SHARE / DOWNLOAD ACTIONS */}
+
+          <View style={styles.imageActionsBar}>
+            <Pressable
+              onPress={shareSelectedImage}
+              disabled={imageActionLoading !== null}
+              style={({ pressed }) => [
+                styles.imageActionButton,
+                pressed && styles.modalPressed,
+                imageActionLoading !== null && styles.imageActionDisabled,
+              ]}
+            >
+              <Text style={styles.imageActionIcon}>↗</Text>
+              <Text style={styles.imageActionText}>
+                {imageActionLoading === 'share' ? 'Sharing...' : 'Share'}
+              </Text>
+            </Pressable>
+
+            <Pressable
+              onPress={downloadSelectedImage}
+              disabled={imageActionLoading !== null}
+              style={({ pressed }) => [
+                styles.imageActionButton,
+                pressed && styles.modalPressed,
+                imageActionLoading !== null && styles.imageActionDisabled,
+              ]}
+            >
+              <Text style={styles.imageActionIcon}>↓</Text>
+              <Text style={styles.imageActionText}>
+                {imageActionLoading === 'download'
+                  ? 'Saving...'
+                  : 'Download'}
+              </Text>
+            </Pressable>
+          </View>
         </View>
       </Modal>
     </SafeAreaView>
@@ -1582,7 +1718,7 @@ const styles = StyleSheet.create({
     top: 90,
     left: 0,
     right: 0,
-    bottom: 90,
+    bottom: 105,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1619,6 +1755,46 @@ const styles = StyleSheet.create({
     lineHeight: 38,
     fontWeight: '300',
     marginTop: -3,
+  },
+
+  imageActionsBar: {
+    position: 'absolute',
+    left: 18,
+    right: 18,
+    bottom: 25,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 12,
+  },
+
+  imageActionButton: {
+    minWidth: 125,
+    height: 48,
+    paddingHorizontal: 18,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255,255,255,0.14)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.22)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  imageActionIcon: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: '700',
+    marginRight: 7,
+  },
+
+  imageActionText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+
+  imageActionDisabled: {
+    opacity: 0.55,
   },
 
   modalPressed: {

@@ -1,4 +1,4 @@
-import { apiRequest } from '@/services/api';
+import { apiRequest, API_BASE_URL } from '@/services/api';
 import { router } from 'expo-router';
 import {
   setAudioModeAsync,
@@ -136,41 +136,22 @@ const QUICK_ACTIONS = [
   { icon: '🪔', title: 'Seva Registration', route: '/seva-registration' },
 ];
 
-const DARSHAN_VIDEOS = [
-  {
-    id: 'live-darshan',
-    title: 'Live Darshan',
-    description: 'Experience live darshan and stay connected with the divine presence.',
-    label: 'LIVE NOW',
-    url: 'https://youtu.be/51x9iP4UVik?si=LPEBV5d4IicFU4ks',
-    thumbnail: 'https://img.youtube.com/vi/51x9iP4UVik/hqdefault.jpg',
-    live: true,
-  },
-  {
-    id: 'darshan-experience',
-    title: 'Darshan Experience',
-    description: 'Watch temple darshan, spiritual moments and sacred experiences.',
-    label: 'WATCH',
-    url: '',
-    thumbnail: 'https://www.divyakshetrahariharapura.com/web/assets/img/others/1.jpg',
-    live: false,
-  },
-  {
-    id: 'devotional-videos',
-    title: 'Devotional Videos',
-    description: 'Spiritual talks, devotional content and temple programs.',
-    label: 'COMING SOON',
-    url: '',
-    thumbnail: 'https://www.divyakshetrahariharapura.com/web/assets/img/others/2.jpg',
-    live: false,
-  },
-];
+type DarshanVideo = {
+  id: number;
+  title: string;
+  description?: string | null;
+  label: 'live' | 'watch';
+  url: string;
+  thumbnail_url?: string | null;
+  is_active: boolean;
+};
 
 export default function HomeScreen() {
   const { width } = useWindowDimensions();
   const [events, setEvents] = useState<any[]>([]);
   const [eventsLoading, setEventsLoading] = useState(true);
   const [scrolled, setScrolled] = useState(false);
+  const [darshanVideos, setDarshanVideos] = useState<DarshanVideo[]>([]);
 
   const player = useAudioPlayer(require('@/assets/audio/home-welcome.mp3'), {
     downloadFirst: true,
@@ -287,6 +268,7 @@ export default function HomeScreen() {
 
   useEffect(() => {
     loadEvents();
+    loadDarshanVideos();
   }, []);
 
   const loadEvents = async () => {
@@ -301,6 +283,24 @@ export default function HomeScreen() {
       console.error('Home events error:', error);
     } finally {
       setEventsLoading(false);
+    }
+  };
+
+  const loadDarshanVideos = async () => {
+    try {
+      const response = await apiRequest<{
+        success: boolean;
+        data: DarshanVideo[];
+      }>('/darshan-videos');
+
+      if (response.success && Array.isArray(response.data)) {
+        setDarshanVideos(response.data);
+      } else {
+        setDarshanVideos([]);
+      }
+    } catch (error) {
+      console.error('Home Darshan Videos error:', error);
+      setDarshanVideos([]);
     }
   };
 
@@ -510,7 +510,7 @@ export default function HomeScreen() {
               <Text style={styles.videoSectionSubtitle}>Feel connected to the divine, wherever you are</Text>
             </View>
             <TouchableOpacity
-              onPress={() => router.push('/darshan')}
+            onPress={() => router.push('/darshan-videos')}
               activeOpacity={0.7}
               style={styles.videoViewAll}
             >
@@ -524,23 +524,31 @@ export default function HomeScreen() {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.videoList}
           >
-            {DARSHAN_VIDEOS.map((video, index) => {
+            {darshanVideos.map((video, index) => {
               const openVideo = () => {
                 if (video.url) {
                   Linking.openURL(video.url);
                 }
               };
 
+              const thumbnail = video.thumbnail_url
+                ? video.thumbnail_url.startsWith('http')
+                  ? video.thumbnail_url
+                  : `${API_BASE_URL.replace(/\/api\/?$/, '')}${
+                      video.thumbnail_url.startsWith('/') ? '' : '/'
+                    }${video.thumbnail_url}`
+                : '';
+
               return (
                 <TouchableOpacity
                   key={video.id}
                   activeOpacity={video.url ? 0.82 : 1}
                   onPress={openVideo}
-                  style={[styles.videoCard, index === DARSHAN_VIDEOS.length - 1 && styles.videoCardLast]}
+                  style={[styles.videoCard, index === darshanVideos.length - 1 && styles.videoCardLast]}
                 >
                   <View style={styles.videoThumbnailWrap}>
                     <Image
-                      source={{ uri: video.thumbnail }}
+                      source={{ uri: thumbnail }}
                       style={styles.videoThumbnail}
                       resizeMode="cover"
                     />
@@ -550,31 +558,24 @@ export default function HomeScreen() {
                       <Text style={styles.videoPlayIcon}>▶</Text>
                     </View>
 
-                    {video.live ? (
+                    {video.label === 'live' ? (
                       <View style={styles.videoLiveBadge}>
                         <View style={styles.videoLiveDot} />
                         <Text style={styles.videoLiveText}>LIVE</Text>
                       </View>
                     ) : null}
 
-                    {!video.url ? (
-                      <View style={styles.videoComingBadge}>
-                        <Text style={styles.videoComingText}>{video.label}</Text>
-                      </View>
-                    ) : null}
                   </View>
 
                   <View style={styles.videoCardBody}>
-                    <Text style={styles.videoCardLabel}>{video.label}</Text>
+                    <Text style={styles.videoCardLabel}>
+                      {video.label === 'live' ? 'LIVE' : 'WATCH'}
+                    </Text>
                     <Text style={styles.videoCardTitle} numberOfLines={1}>{video.title}</Text>
                     <Text style={styles.videoCardDescription} numberOfLines={2}>
                       {video.description}
                     </Text>
-                    {video.url ? (
-                      <Text style={styles.videoWatchNow}>Watch now  →</Text>
-                    ) : (
-                      <Text style={styles.videoWatchSoon}>Video will be added soon</Text>
-                    )}
+                    <Text style={styles.videoWatchNow}>Watch now  →</Text>
                   </View>
                 </TouchableOpacity>
               );
