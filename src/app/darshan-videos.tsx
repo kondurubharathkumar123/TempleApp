@@ -277,7 +277,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-
+  
   playIcon: {
     color: '#FFFFFF',
     fontSize: 21,
