@@ -1,19 +1,19 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+
 import {
   Animated,
-  Dimensions,
-  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+import { apiRequest } from '@/services/api';
 
 const COLORS = {
   background: '#FBF7F0',
@@ -29,35 +29,30 @@ const COLORS = {
   white: '#FFFFFF',
 };
 
+type ActivitySection = {
+  id: number;
+  name: string;
+  description: string | null;
+  icon: string | null;
+  image_url: string | null;
+  display_order: number;
+  is_active: boolean;
+};
+
 const programs = [
   {
     icon: 'ॐ',
     title: 'Dharmayatra',
-    description: 'Join spiritual journeys, pilgrimages and meaningful temple programs.',
+    description:
+      'Join spiritual journeys, pilgrimages and meaningful temple programs.',
     meta: 'SPIRITUAL JOURNEY',
   },
   {
     icon: '✦',
     title: 'Special Programs',
-    description: 'Discover upcoming gatherings, celebrations and spiritual programs.',
+    description:
+      'Discover upcoming gatherings, celebrations and spiritual programs.',
     meta: 'UPCOMING',
-  },
-];
-
-const videos = [
-  {
-    icon: '▶',
-    title: 'Live Darshan',
-    description: 'Experience live darshan and stay connected with the divine presence.',
-    label: 'LIVE NOW',
-    url: 'https://youtu.be/51x9iP4UVik?si=LPEBV5d4IicFU4ks',
-  },
-  {
-    icon: '◉',
-    title: 'Devotional Videos',
-    description: 'Watch spiritual talks, devotional content and temple programs.',
-    label: 'WATCH',
-    url: 'https://www.youtube.com/watch?v=YOUR_VIDEO_ID',
   },
 ];
 
@@ -67,7 +62,13 @@ const insights = [
   'Devotional thoughts and messages',
 ];
 
-function FadeIn({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
+function FadeIn({
+  children,
+  delay = 0,
+}: {
+  children: React.ReactNode;
+  delay?: number;
+}) {
   const opacity = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(16)).current;
 
@@ -79,6 +80,7 @@ function FadeIn({ children, delay = 0 }: { children: React.ReactNode; delay?: nu
         delay,
         useNativeDriver: true,
       }),
+
       Animated.timing(translateY, {
         toValue: 0,
         duration: 500,
@@ -89,7 +91,12 @@ function FadeIn({ children, delay = 0 }: { children: React.ReactNode; delay?: nu
   }, [delay, opacity, translateY]);
 
   return (
-    <Animated.View style={{ opacity, transform: [{ translateY }] }}>
+    <Animated.View
+      style={{
+        opacity,
+        transform: [{ translateY }],
+      }}
+    >
       {children}
     </Animated.View>
   );
@@ -107,164 +114,324 @@ function SectionHeading({
   return (
     <View style={styles.sectionHeading}>
       <View style={styles.sectionHeadingLeft}>
-        {eyebrow ? <Text style={styles.sectionEyebrow}>{eyebrow}</Text> : null}
-        <Text style={styles.sectionTitle}>{title}</Text>
+        {eyebrow ? (
+          <Text style={styles.sectionEyebrow}>
+            {eyebrow}
+          </Text>
+        ) : null}
+
+        <Text style={styles.sectionTitle}>
+          {title}
+        </Text>
       </View>
-      {action ? <Text style={styles.sectionAction}>{action}</Text> : null}
+
+      {action ? (
+        <Text style={styles.sectionAction}>
+          {action}
+        </Text>
+      ) : null}
     </View>
   );
 }
 
 export default function ActivitiesScreen() {
+  const [sections, setSections] = useState<ActivitySection[]>(
+    []
+  );
+
+  const [loadingSections, setLoadingSections] =
+    useState(true);
+
+  const [sectionError, setSectionError] =
+    useState('');
+
+  useEffect(() => {
+    loadActivitySections();
+  }, []);
+
+  const loadActivitySections = async () => {
+    try {
+      setLoadingSections(true);
+      setSectionError('');
+
+      const response = await apiRequest(
+        '/activity-sections'
+      );
+
+      if (
+        response.success &&
+        Array.isArray(response.data)
+      ) {
+        setSections(response.data);
+      } else {
+        setSections([]);
+        setSectionError(
+          'Unable to load activity sections.'
+        );
+      }
+    } catch (error) {
+      console.error(
+        'Activity sections loading error:',
+        error
+      );
+
+      setSections([]);
+
+      setSectionError(
+        'Unable to connect to the activity service.'
+      );
+    } finally {
+      setLoadingSections(false);
+    }
+  };
+const openSection = (sectionId: number) => {
+  router.push({
+    pathname: '/activities/section/[id]',
+    params: {
+      id: String(sectionId),
+    },
+  });
+};
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.content}
       >
-        {/* Premium hero */}
+        {/* =========================================
+            PREMIUM HERO
+        ========================================= */}
+
         <FadeIn>
           <LinearGradient
-            colors={['#7A3516', '#A65321', '#C27B31']}
+            colors={[
+              '#7A3516',
+              '#A65321',
+              '#C27B31',
+            ]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.hero}
           >
             <View style={styles.heroGlowOne} />
+
             <View style={styles.heroGlowTwo} />
 
             <View style={styles.heroTopRow}>
               <View style={styles.heroPill}>
                 <View style={styles.liveDot} />
-                <Text style={styles.heroPillText}>SPIRITUAL • COMMUNITY • SERVICE</Text>
+
+                <Text style={styles.heroPillText}>
+                  SPIRITUAL • COMMUNITY • SERVICE
+                </Text>
               </View>
 
               <View style={styles.omBadge}>
-                <Text style={styles.omText}>ॐ</Text>
+                <Text style={styles.omText}>
+                  ॐ
+                </Text>
               </View>
             </View>
 
-            <Text style={styles.heroTitle}>Activities</Text>
+            <Text style={styles.heroTitle}>
+              Activities
+            </Text>
+
             <Text style={styles.heroSubtitle}>
-              Discover spiritual programs, seva, celebrations and moments of devotion.
+              Discover spiritual programs, seva,
+              celebrations and moments of devotion.
             </Text>
 
             <View style={styles.heroBottom}>
               <View>
-                <Text style={styles.heroSmallLabel}>A SPACE TO</Text>
-                <Text style={styles.heroSmallValue}>Connect • Learn • Serve</Text>
+                <Text style={styles.heroSmallLabel}>
+                  A SPACE TO
+                </Text>
+
+                <Text style={styles.heroSmallValue}>
+                  Connect • Learn • Serve
+                </Text>
               </View>
-              <Text style={styles.heroSparkle}>✦</Text>
+
+              <Text style={styles.heroSparkle}>
+                ✦
+              </Text>
             </View>
           </LinearGradient>
         </FadeIn>
 
-        {/* Intro */}
+        {/* =========================================
+            INTRO
+        ========================================= */}
+
         <FadeIn delay={80}>
           <View style={styles.introCard}>
             <View style={styles.introIconWrap}>
-              <Text style={styles.introIcon}>ॐ</Text>
-            </View>
-            <View style={styles.introCopy}>
-              <Text style={styles.introTitle}>A living tradition</Text>
-              <Text style={styles.introText}>
-                Explore experiences that bring devotion, knowledge and community together.
+              <Text style={styles.introIcon}>
+                ॐ
               </Text>
             </View>
-            <Text style={styles.introArrow}>↗</Text>
+
+            <View style={styles.introCopy}>
+              <Text style={styles.introTitle}>
+                A living tradition
+              </Text>
+
+              <Text style={styles.introText}>
+                Explore experiences that bring devotion,
+                knowledge and community together.
+              </Text>
+            </View>
+
+            <Text style={styles.introArrow}>
+              ↗
+            </Text>
           </View>
         </FadeIn>
 
-        {/* Main activity categories */}
+        {/* =========================================
+            DYNAMIC ACTIVITY SECTIONS
+        ========================================= */}
+
         <FadeIn delay={140}>
-          <SectionHeading eyebrow="EXPLORE" title="Spiritual Activities" />
+          <SectionHeading
+            eyebrow="EXPLORE"
+            title="Spiritual Activities"
+          />
 
-          <Pressable
-            style={({ pressed }) => [styles.featureCard, pressed && styles.pressed]}
-            onPress={() => router.push('/activities/yearly')}
-          >
-            <LinearGradient
-              colors={['#FFF9F1', '#F5E4D0']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.featureGradient}
-            >
-              <View style={styles.featureIcon}>
-                <Text style={styles.featureIconText}>◷</Text>
-              </View>
+          {loadingSections ? (
+            <View style={styles.loadingCard}>
+              <Text style={styles.loadingIcon}>
+                ॐ
+              </Text>
 
-              <View style={styles.featureContent}>
-                <View style={styles.featureTitleRow}>
-                  <Text style={styles.featureTitle}>Yearly Activities</Text>
-                  <Text style={styles.featureArrow}>→</Text>
-                </View>
-                <Text style={styles.featureDescription}>
-                  Annual festivals, celebrations and important spiritual occasions.
-                </Text>
-                <View style={styles.chip}>
-                  <Text style={styles.chipText}>FESTIVALS & CELEBRATIONS</Text>
-                </View>
-              </View>
-            </LinearGradient>
-          </Pressable>
-
-          <Pressable
-            style={({ pressed }) => [styles.featureCard, pressed && styles.pressed]}
-            onPress={() => router.push('/activities/social')}
-          >
-            <View style={styles.featurePlain}>
-              <View style={[styles.featureIcon, styles.featureIconGold]}>
-                <Text style={styles.featureIconText}>♧</Text>
-              </View>
-
-              <View style={styles.featureContent}>
-                <View style={styles.featureTitleRow}>
-                  <Text style={styles.featureTitle}>Social Activities</Text>
-                  <Text style={styles.featureArrow}>→</Text>
-                </View>
-                <Text style={styles.featureDescription}>
-                  Initiatives that encourage Sanatana Dharma, learning and community participation.
-                </Text>
-                <View style={styles.chip}>
-                  <Text style={styles.chipText}>COMMUNITY</Text>
-                </View>
-              </View>
+              <Text style={styles.loadingText}>
+                Loading activities...
+              </Text>
             </View>
-          </Pressable>
+          ) : sectionError ? (
+            <View style={styles.errorCard}>
+              <Text style={styles.errorIcon}>
+                ⚠️
+              </Text>
 
-          <Pressable
-            style={({ pressed }) => [styles.featureCard, pressed && styles.pressed]}
-            onPress={() => router.push('/activities/services')}
-          >
-            <LinearGradient
-              colors={['#FDF7EE', '#F1DDC7']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.featureGradient}
-            >
-              <View style={[styles.featureIcon, styles.featureIconDark]}>
-                <Text style={styles.featureIconText}>✦</Text>
-              </View>
+              <Text style={styles.errorTitle}>
+                Unable to load activities
+              </Text>
 
-              <View style={styles.featureContent}>
-                <View style={styles.featureTitleRow}>
-                  <Text style={styles.featureTitle}>Services</Text>
-                  <Text style={styles.featureArrow}>→</Text>
-                </View>
-                <Text style={styles.featureDescription}>
-                  Educational, charitable and community-service initiatives.
+              <Text style={styles.errorText}>
+                {sectionError}
+              </Text>
+
+              <Pressable
+                style={styles.retryButton}
+                onPress={loadActivitySections}
+              >
+                <Text style={styles.retryButtonText}>
+                  Try Again
                 </Text>
-                <View style={styles.chip}>
-                  <Text style={styles.chipText}>SEVA</Text>
-                </View>
-              </View>
-            </LinearGradient>
-          </Pressable>
+              </Pressable>
+            </View>
+          ) : sections.length === 0 ? (
+            <View style={styles.emptyCard}>
+              <Text style={styles.emptyIcon}>
+                🙏
+              </Text>
+
+              <Text style={styles.emptyTitle}>
+                No activities available
+              </Text>
+
+              <Text style={styles.emptyText}>
+                New activity sections will appear here
+                when they are added by the temple admin.
+              </Text>
+            </View>
+          ) : (
+            sections.map((section, index) => (
+              <Pressable
+                key={section.id}
+                style={({ pressed }) => [
+                  styles.featureCard,
+                  pressed && styles.pressed,
+                ]}
+                onPress={() =>
+                  openSection(section.id)
+                }
+              >
+                <LinearGradient
+                  colors={
+                    index % 3 === 0
+                      ? ['#FFF9F1', '#F5E4D0']
+                      : index % 3 === 1
+                        ? ['#FFFFFF', '#F6EBD9']
+                        : ['#FDF7EE', '#F1DDC7']
+                  }
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.featureGradient}
+                >
+                  {/* Icon */}
+                  <View
+                    style={[
+                      styles.featureIcon,
+                      index % 3 === 1 &&
+                        styles.featureIconGold,
+                      index % 3 === 2 &&
+                        styles.featureIconDark,
+                    ]}
+                  >
+                    <Text
+                      style={styles.featureIconText}
+                    >
+                      {section.icon || '✦'}
+                    </Text>
+                  </View>
+
+                  {/* Content */}
+                  <View style={styles.featureContent}>
+                    <View style={styles.featureTitleRow}>
+                      <Text
+                        style={styles.featureTitle}
+                        numberOfLines={2}
+                      >
+                        {section.name}
+                      </Text>
+
+                      <Text style={styles.featureArrow}>
+                        →
+                      </Text>
+                    </View>
+
+                    <Text
+                      style={styles.featureDescription}
+                    >
+                      {section.description ||
+                        'Explore spiritual activities and programs.'}
+                    </Text>
+
+                    <View style={styles.chip}>
+                      <Text style={styles.chipText}>
+                        EXPLORE
+                      </Text>
+                    </View>
+                  </View>
+                </LinearGradient>
+              </Pressable>
+            ))
+          )}
         </FadeIn>
 
-        {/* Swamy Vani */}
-        <FadeIn delay={220}>
-          <SectionHeading eyebrow="DAILY REFLECTION" title="Swamy Vani" />
+        {/* =========================================
+            GURU VANI
+        ========================================= */}
+
+        <FadeIn delay={260}>
+          <SectionHeading
+            eyebrow="DAILY REFLECTION"
+            title="Guru Vani"
+          />
 
           <LinearGradient
             colors={['#2F2018', '#503225']}
@@ -273,30 +440,42 @@ export default function ActivitiesScreen() {
             style={styles.vaniCard}
           >
             <View style={styles.vaniPattern}>
-              <Text style={styles.vaniPatternText}>ॐ</Text>
+              <Text style={styles.vaniPatternText}>
+                ॐ
+              </Text>
             </View>
 
             <View style={styles.vaniTop}>
               <View style={styles.vaniBadge}>
-                <Text style={styles.vaniBadgeText}>TODAY'S MESSAGE</Text>
+                <Text style={styles.vaniBadgeText}>
+                  TODAY'S MESSAGE
+                </Text>
               </View>
-              <Text style={styles.vaniMark}>✦</Text>
+
+              <Text style={styles.vaniMark}>
+                ✦
+              </Text>
             </View>
 
             <Text style={styles.vaniQuote}>
-              “Walk with devotion and let faith guide every step.”
+              “Walk with devotion and let faith guide
+              every step.”
             </Text>
 
             <View style={styles.vaniDivider} />
 
             <Text style={styles.vaniDescription}>
-              Daily sacred thoughts and spiritual messages for a peaceful beginning.
+              Daily sacred thoughts and spiritual
+              messages for a peaceful beginning.
             </Text>
           </LinearGradient>
         </FadeIn>
 
-        {/* Programs */}
-        <FadeIn delay={300}>
+        {/* =========================================
+            PROGRAMS
+        ========================================= */}
+
+        <FadeIn delay={320}>
           <SectionHeading
             eyebrow="DISCOVER"
             title="Dharmayatra & Programs"
@@ -311,29 +490,58 @@ export default function ActivitiesScreen() {
             {programs.map((program) => (
               <Pressable
                 key={program.title}
-                style={({ pressed }) => [styles.programCard, pressed && styles.pressed]}
+                style={({ pressed }) => [
+                  styles.programCard,
+                  pressed && styles.pressed,
+                ]}
               >
                 <View style={styles.programVisual}>
-                  <View style={styles.programOrbLarge} />
-                  <View style={styles.programOrbSmall} />
-                  <Text style={styles.programIcon}>{program.icon}</Text>
+                  <View
+                    style={styles.programOrbLarge}
+                  />
+
+                  <View
+                    style={styles.programOrbSmall}
+                  />
+
+                  <Text style={styles.programIcon}>
+                    {program.icon}
+                  </Text>
                 </View>
 
-                <Text style={styles.programMeta}>{program.meta}</Text>
-                <Text style={styles.programTitle}>{program.title}</Text>
-                <Text style={styles.programDescription}>{program.description}</Text>
+                <Text style={styles.programMeta}>
+                  {program.meta}
+                </Text>
+
+                <Text style={styles.programTitle}>
+                  {program.title}
+                </Text>
+
+                <Text
+                  style={styles.programDescription}
+                >
+                  {program.description}
+                </Text>
 
                 <View style={styles.programFooter}>
-                  <Text style={styles.programLink}>Explore</Text>
-                  <Text style={styles.programArrow}>↗</Text>
+                  <Text style={styles.programLink}>
+                    Explore
+                  </Text>
+
+                  <Text style={styles.programArrow}>
+                    ↗
+                  </Text>
                 </View>
               </Pressable>
             ))}
           </ScrollView>
         </FadeIn>
 
-        {/* Seva CTA */}
-        <FadeIn delay={360}>
+        {/* =========================================
+            SEVA CTA
+        ========================================= */}
+
+        <FadeIn delay={380}>
           <LinearGradient
             colors={['#914417', '#B66024']}
             start={{ x: 0, y: 0 }}
@@ -341,99 +549,55 @@ export default function ActivitiesScreen() {
             style={styles.sevaCard}
           >
             <View style={styles.sevaDecorOne} />
+
             <View style={styles.sevaDecorTwo} />
 
             <View style={styles.sevaIconWrap}>
-              <Text style={styles.sevaIcon}>✦</Text>
+              <Text style={styles.sevaIcon}>
+                ✦
+              </Text>
             </View>
 
-            <Text style={styles.sevaEyebrow}>OFFER YOUR SERVICE</Text>
-            <Text style={styles.sevaTitle}>Serve with devotion</Text>
+            <Text style={styles.sevaEyebrow}>
+              OFFER YOUR SERVICE
+            </Text>
+
+            <Text style={styles.sevaTitle}>
+              Serve with devotion
+            </Text>
+
             <Text style={styles.sevaText}>
-              Participate in seva and contribute your time, skills and presence.
+              Participate in seva and contribute your
+              time, skills and presence.
             </Text>
 
             <Pressable
-              style={({ pressed }) => [styles.sevaButton, pressed && styles.buttonPressed]}
+              style={({ pressed }) => [
+                styles.sevaButton,
+                pressed && styles.buttonPressed,
+              ]}
               onPress={() => router.push('/pooja')}
             >
-              <Text style={styles.sevaButtonText}>Explore Seva</Text>
-              <Text style={styles.sevaButtonArrow}>→</Text>
+              <Text style={styles.sevaButtonText}>
+                Explore Seva
+              </Text>
+
+              <Text style={styles.sevaButtonArrow}>
+                →
+              </Text>
             </Pressable>
           </LinearGradient>
         </FadeIn>
 
-        {/* Videos */}
-        <FadeIn delay={420}>
-          <SectionHeading eyebrow="WATCH & EXPERIENCE" title="Darshan & Videos" />
+        {/* =========================================
+            INSIGHTS
+        ========================================= */}
 
-          {videos.map((video, index) => (
-            <Pressable
-              key={video.title}
-              style={({ pressed }) => [styles.videoCard, pressed && styles.pressed]}
-              onPress={() => Linking.openURL(video.url)}>
-            
-              <LinearGradient
-                colors={index === 0 ? ['#4D2112', '#9B4B1E'] : ['#EED9C1', '#F8EFE5']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.videoVisual}
-              >
-                <Text
-                  style={[
-                    styles.videoIcon,
-                    index !== 0 && styles.videoIconDark,
-                  ]}
-                >
-                  {video.icon}
-                </Text>
-                {index === 0 ? (
-                  <View style={styles.videoLiveBadge}>
-                    <View style={styles.liveDot} />
-                    <Text style={styles.videoLiveText}>LIVE</Text>
-                  </View>
-                ) : null}
-              </LinearGradient>
-
-              <View style={styles.videoContent}>
-                <Text style={styles.videoLabel}>{video.label}</Text>
-                <Text style={styles.videoTitle}>{video.title}</Text>
-                <Text style={styles.videoDescription}>{video.description}</Text>
-                <Text style={styles.watchText}>Watch now  →</Text>
-              </View>
-            </Pressable>
-          ))}
-        </FadeIn>
-
-        {/* Event */}
-        <FadeIn delay={480}>
-          <SectionHeading eyebrow="MARK YOUR CALENDAR" title="Upcoming Event" />
-
-          <Pressable
-            style={({ pressed }) => [styles.eventCard, pressed && styles.pressed]}
-          >
-            <View style={styles.eventDate}>
-              <Text style={styles.eventMonth}>SEP</Text>
-              <Text style={styles.eventDay}>07</Text>
-              <Text style={styles.eventYear}>2026</Text>
-            </View>
-
-            <View style={styles.eventContent}>
-              <View style={styles.eventTag}>
-                <Text style={styles.eventTagText}>SPIRITUAL GATHERING</Text>
-              </View>
-              <Text style={styles.eventTitle}>Temple Festival</Text>
-              <Text style={styles.eventDescription}>
-                Celebrate together with the spiritual community in an atmosphere of devotion.
-              </Text>
-              <Text style={styles.eventLink}>View event  →</Text>
-            </View>
-          </Pressable>
-        </FadeIn>
-
-        {/* Insights */}
-        <FadeIn delay={540}>
-          <SectionHeading eyebrow="STAY CONNECTED" title="Insights & Messages" />
+        <FadeIn delay={440}>
+          <SectionHeading
+            eyebrow="STAY CONNECTED"
+            title="Insights & Messages"
+          />
 
           <View style={styles.insightsCard}>
             {insights.map((item, index) => (
@@ -441,25 +605,44 @@ export default function ActivitiesScreen() {
                 key={item}
                 style={({ pressed }) => [
                   styles.insightRow,
-                  index !== insights.length - 1 && styles.insightBorder,
+                  index !==
+                    insights.length - 1 &&
+                    styles.insightBorder,
                   pressed && styles.rowPressed,
                 ]}
               >
                 <View style={styles.insightNumber}>
-                  <Text style={styles.insightNumberText}>
-                    {String(index + 1).padStart(2, '0')}
+                  <Text
+                    style={
+                      styles.insightNumberText
+                    }
+                  >
+                    {String(index + 1).padStart(
+                      2,
+                      '0'
+                    )}
                   </Text>
                 </View>
 
-                <Text style={styles.insightText}>{item}</Text>
-                <Text style={styles.insightArrow}>↗</Text>
+                <Text style={styles.insightText}>
+                  {item}
+                </Text>
+
+                <Text style={styles.insightArrow}>
+                  ↗
+                </Text>
               </Pressable>
             ))}
           </View>
         </FadeIn>
 
+        {/* =========================================
+            BOTTOM NOTE
+        ========================================= */}
+
         <Text style={styles.bottomNote}>
-          More activities, programs and live updates can be connected through the backend later.
+          Activities and activity sections are managed
+          dynamically by the temple administration.
         </Text>
       </ScrollView>
     </SafeAreaView>
@@ -478,6 +661,8 @@ const styles = StyleSheet.create({
     paddingBottom: 44,
   },
 
+  /* HERO */
+
   hero: {
     minHeight: 285,
     borderRadius: 30,
@@ -493,17 +678,19 @@ const styles = StyleSheet.create({
     borderRadius: 95,
     right: -60,
     top: -70,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor:
+      'rgba(255,255,255,0.08)',
   },
 
   heroGlowTwo: {
     position: 'absolute',
-    width: 140,
-    height: 140,
-    borderRadius: 70,
-    left: -65,
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    left: -80,
     bottom: -70,
-    backgroundColor: 'rgba(255,214,151,0.08)',
+    backgroundColor:
+      'rgba(255,255,255,0.06)',
   },
 
   heroTopRow: {
@@ -516,147 +703,146 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 11,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.13)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.15)',
+    paddingVertical: 7,
+    borderRadius: 20,
+    backgroundColor:
+      'rgba(255,255,255,0.12)',
   },
 
   liveDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#F4C46C',
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: '#F5D49A',
     marginRight: 7,
   },
 
   heroPillText: {
-    color: '#FCE9D0',
-    fontSize: 7,
-    fontWeight: '800',
-    letterSpacing: 0.9,
+    fontSize: 8,
+    color: '#FFF8ED',
+    fontWeight: '700',
+    letterSpacing: 0.7,
   },
 
   omBadge: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    borderWidth: 1,
+    borderColor:
+      'rgba(255,255,255,0.35)',
+    backgroundColor:
+      'rgba(255,255,255,0.10)',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.13)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.18)',
   },
 
   omText: {
-    color: '#FFF5E7',
-    fontSize: 25,
-    fontWeight: '500',
+    color: '#FFF7E9',
+    fontSize: 27,
   },
 
   heroTitle: {
-    color: COLORS.white,
-    fontSize: Math.min(44, SCREEN_WIDTH * 0.115),
-    lineHeight: 52,
+    marginTop: 42,
+    fontSize: 38,
     fontWeight: '800',
-    letterSpacing: -1.3,
-    marginTop: 38,
+    color: COLORS.white,
+    letterSpacing: -0.5,
   },
 
   heroSubtitle: {
+    marginTop: 9,
+    fontSize: 13,
+    lineHeight: 20,
     color: '#F9EBDD',
-    fontSize: 12,
-    lineHeight: 19,
-    maxWidth: 300,
-    marginTop: 7,
+    maxWidth: '90%',
   },
 
   heroBottom: {
-    marginTop: 28,
-    paddingTop: 15,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.18)',
+    marginTop: 30,
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'flex-end',
+    justifyContent: 'space-between',
   },
 
   heroSmallLabel: {
-    color: '#EBC59C',
-    fontSize: 7,
-    fontWeight: '800',
-    letterSpacing: 1.2,
-    marginBottom: 4,
+    fontSize: 8,
+    fontWeight: '700',
+    color: '#F3D8B5',
+    letterSpacing: 1,
   },
 
   heroSmallValue: {
-    color: '#FFF7EC',
-    fontSize: 11,
+    marginTop: 4,
+    fontSize: 12,
     fontWeight: '700',
+    color: COLORS.white,
   },
 
   heroSparkle: {
-    color: '#F4C46C',
-    fontSize: 25,
+    fontSize: 26,
+    color: '#F4D18D',
   },
 
+  /* INTRO */
+
   introCard: {
-    minHeight: 88,
     backgroundColor: COLORS.surface,
-    borderRadius: 22,
-    padding: 14,
+    borderRadius: 20,
+    padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: 24,
     borderWidth: 1,
     borderColor: COLORS.border,
-    marginBottom: 27,
   },
 
   introIconWrap: {
-    width: 56,
-    height: 56,
-    borderRadius: 18,
+    width: 46,
+    height: 46,
+    borderRadius: 15,
     backgroundColor: COLORS.surfaceSoft,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: 13,
   },
 
   introIcon: {
-    fontSize: 29,
+    fontSize: 23,
     color: COLORS.primary,
   },
 
   introCopy: {
     flex: 1,
-    paddingRight: 8,
   },
 
   introTitle: {
-    color: COLORS.text,
     fontSize: 14,
     fontWeight: '800',
+    color: COLORS.text,
     marginBottom: 4,
   },
 
   introText: {
+    fontSize: 11,
+    lineHeight: 17,
     color: COLORS.textSoft,
-    fontSize: 10.5,
-    lineHeight: 16,
   },
 
   introArrow: {
-    color: COLORS.primary,
     fontSize: 22,
+    color: COLORS.gold,
+    marginLeft: 8,
   },
+
+  /* SECTION HEADING */
 
   sectionHeading: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-end',
     marginBottom: 12,
-    paddingHorizontal: 2,
+    marginTop: 5,
   },
 
   sectionHeadingLeft: {
@@ -664,69 +850,62 @@ const styles = StyleSheet.create({
   },
 
   sectionEyebrow: {
+    fontSize: 8,
+    fontWeight: '800',
     color: COLORS.gold,
-    fontSize: 7.5,
-    fontWeight: '900',
-    letterSpacing: 1.3,
+    letterSpacing: 1.2,
     marginBottom: 4,
   },
 
   sectionTitle: {
-    color: COLORS.text,
     fontSize: 21,
-    lineHeight: 27,
     fontWeight: '800',
-    letterSpacing: -0.35,
+    color: COLORS.text,
   },
 
   sectionAction: {
-    color: COLORS.primary,
     fontSize: 10,
-    fontWeight: '800',
-    marginBottom: 3,
+    fontWeight: '700',
+    color: COLORS.primary,
   },
+
+  /* DYNAMIC SECTIONS */
 
   featureCard: {
     borderRadius: 22,
+    marginBottom: 13,
     overflow: 'hidden',
-    backgroundColor: COLORS.surface,
-    marginBottom: 11,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    elevation: 2,
   },
 
   featureGradient: {
-    padding: 15,
+    minHeight: 145,
+    padding: 17,
     flexDirection: 'row',
-  },
-
-  featurePlain: {
-    padding: 15,
-    flexDirection: 'row',
+    alignItems: 'center',
   },
 
   featureIcon: {
     width: 58,
     height: 58,
-    borderRadius: 18,
-    backgroundColor: '#EBD0B2',
+    borderRadius: 19,
+    backgroundColor: '#EFD4B4',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 13,
+    marginRight: 15,
   },
 
   featureIconGold: {
-    backgroundColor: '#F0E2C8',
+    backgroundColor: '#F0D69F',
   },
 
   featureIconDark: {
-    backgroundColor: '#E4C19D',
+    backgroundColor: '#E5C5A4',
   },
 
   featureIconText: {
-    color: COLORS.primary,
     fontSize: 28,
-    fontWeight: '500',
+    color: COLORS.primaryDark,
   },
 
   featureContent: {
@@ -735,70 +914,164 @@ const styles = StyleSheet.create({
 
   featureTitleRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
   },
 
   featureTitle: {
-    color: COLORS.text,
-    fontSize: 14,
-    fontWeight: '800',
     flex: 1,
+    fontSize: 17,
+    fontWeight: '800',
+    color: COLORS.text,
   },
 
   featureArrow: {
+    fontSize: 21,
     color: COLORS.primary,
-    fontSize: 19,
     marginLeft: 8,
   },
 
   featureDescription: {
+    fontSize: 11,
+    lineHeight: 17,
     color: COLORS.textSoft,
-    fontSize: 10,
-    lineHeight: 15,
-    marginTop: 5,
+    marginTop: 6,
   },
 
   chip: {
     alignSelf: 'flex-start',
-    marginTop: 8,
-    paddingHorizontal: 8,
+    marginTop: 10,
+    paddingHorizontal: 9,
     paddingVertical: 5,
-    borderRadius: 8,
-    backgroundColor: 'rgba(155,75,30,0.08)',
+    borderRadius: 10,
+    backgroundColor:
+      'rgba(155,75,30,0.09)',
   },
 
   chipText: {
+    fontSize: 7,
+    fontWeight: '800',
     color: COLORS.primary,
-    fontSize: 6.5,
-    fontWeight: '900',
-    letterSpacing: 0.7,
+    letterSpacing: 0.8,
   },
 
+  loadingCard: {
+    minHeight: 145,
+    borderRadius: 22,
+    backgroundColor: COLORS.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginBottom: 13,
+  },
+
+  loadingIcon: {
+    fontSize: 32,
+    color: COLORS.primary,
+    marginBottom: 8,
+  },
+
+  loadingText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: COLORS.textSoft,
+  },
+
+  errorCard: {
+    borderRadius: 22,
+    padding: 25,
+    backgroundColor: COLORS.surface,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E8C9C0',
+    marginBottom: 13,
+  },
+
+  errorIcon: {
+    fontSize: 30,
+    marginBottom: 8,
+  },
+
+  errorTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: COLORS.text,
+  },
+
+  errorText: {
+    marginTop: 5,
+    fontSize: 11,
+    color: COLORS.textSoft,
+    textAlign: 'center',
+  },
+
+  retryButton: {
+    marginTop: 14,
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 18,
+    paddingVertical: 9,
+    borderRadius: 12,
+  },
+
+  retryButtonText: {
+    color: COLORS.white,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+
+  emptyCard: {
+    borderRadius: 22,
+    padding: 28,
+    backgroundColor: COLORS.surface,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginBottom: 13,
+  },
+
+  emptyIcon: {
+    fontSize: 35,
+    marginBottom: 8,
+  },
+
+  emptyTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: COLORS.text,
+  },
+
+  emptyText: {
+    marginTop: 6,
+    fontSize: 11,
+    lineHeight: 17,
+    color: COLORS.textSoft,
+    textAlign: 'center',
+  },
+
+  pressed: {
+    opacity: 0.82,
+    transform: [{ scale: 0.985 }],
+  },
+
+  /* GURU VANI */
+
   vaniCard: {
-    minHeight: 220,
-    borderRadius: 26,
+    borderRadius: 24,
     padding: 20,
     overflow: 'hidden',
-    marginBottom: 28,
+    marginBottom: 24,
   },
 
   vaniPattern: {
     position: 'absolute',
-    right: -22,
-    bottom: -28,
-    width: 160,
-    height: 160,
-    borderRadius: 80,
-    borderWidth: 1,
-    borderColor: 'rgba(255,210,149,0.16)',
-    alignItems: 'center',
-    justifyContent: 'center',
+    right: -20,
+    bottom: -30,
+    opacity: 0.08,
   },
 
   vaniPatternText: {
-    color: 'rgba(255,220,170,0.13)',
-    fontSize: 85,
+    fontSize: 130,
+    color: '#FFFFFF',
   },
 
   vaniTop: {
@@ -808,161 +1081,153 @@ const styles = StyleSheet.create({
   },
 
   vaniBadge: {
-    backgroundColor: 'rgba(255,255,255,0.10)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
-    paddingHorizontal: 9,
+    paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 9,
+    borderRadius: 10,
+    backgroundColor:
+      'rgba(255,255,255,0.10)',
   },
 
   vaniBadgeText: {
-    color: '#EFC68F',
     fontSize: 7,
-    fontWeight: '900',
+    fontWeight: '800',
+    color: '#EBCB9D',
     letterSpacing: 1,
   },
 
   vaniMark: {
-    color: '#EFC68F',
-    fontSize: 17,
+    color: '#EBCB9D',
+    fontSize: 20,
   },
 
   vaniQuote: {
-    color: COLORS.white,
+    marginTop: 22,
     fontSize: 20,
     lineHeight: 29,
+    color: '#FFF8ED',
     fontWeight: '700',
-    letterSpacing: -0.25,
-    marginTop: 27,
-    maxWidth: 315,
   },
 
   vaniDivider: {
-    width: 42,
+    width: 50,
     height: 2,
-    backgroundColor: COLORS.gold,
-    marginTop: 18,
-    marginBottom: 11,
-    borderRadius: 2,
+    backgroundColor: '#C88A32',
+    marginTop: 17,
+    marginBottom: 13,
   },
 
   vaniDescription: {
-    color: '#D6C5B8',
-    fontSize: 10,
-    lineHeight: 16,
-    maxWidth: 300,
+    fontSize: 11,
+    lineHeight: 17,
+    color: '#D8C7BA',
   },
 
+  /* PROGRAMS */
+
   horizontalList: {
-    paddingBottom: 8,
-    paddingRight: 4,
+    paddingBottom: 5,
   },
 
   programCard: {
-    width: Math.min(245, SCREEN_WIDTH * 0.68),
-    minHeight: 292,
+    width: 230,
     backgroundColor: COLORS.surface,
-    borderRadius: 23,
-    marginRight: 12,
-    padding: 11,
+    borderRadius: 20,
+    padding: 13,
+    marginRight: 13,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
 
   programVisual: {
-    height: 126,
-    borderRadius: 17,
-    backgroundColor: '#F3E3D1',
+    height: 115,
+    borderRadius: 15,
+    backgroundColor: '#F4E4D0',
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 14,
+    marginBottom: 12,
   },
 
   programOrbLarge: {
     position: 'absolute',
-    width: 118,
-    height: 118,
-    borderRadius: 59,
-    backgroundColor: '#E5C6A2',
-    top: 18,
-    left: 50,
+    width: 125,
+    height: 125,
+    borderRadius: 63,
+    backgroundColor:
+      'rgba(200,138,50,0.12)',
   },
 
   programOrbSmall: {
     position: 'absolute',
-    width: 55,
-    height: 55,
-    borderRadius: 28,
-    backgroundColor: '#D5A66E',
-    top: 12,
-    left: 17,
+    width: 75,
+    height: 75,
+    borderRadius: 38,
+    backgroundColor:
+      'rgba(155,75,30,0.08)',
   },
 
   programIcon: {
+    fontSize: 38,
     color: COLORS.primary,
-    fontSize: 50,
-    zIndex: 2,
   },
 
   programMeta: {
-    color: COLORS.gold,
     fontSize: 7,
-    fontWeight: '900',
-    letterSpacing: 1.1,
+    fontWeight: '800',
+    color: COLORS.gold,
+    letterSpacing: 1,
   },
 
   programTitle: {
-    color: COLORS.text,
+    marginTop: 5,
     fontSize: 16,
     fontWeight: '800',
-    marginTop: 5,
+    color: COLORS.text,
   },
 
   programDescription: {
-    color: COLORS.textSoft,
+    marginTop: 5,
     fontSize: 10,
-    lineHeight: 15,
-    marginTop: 6,
+    lineHeight: 16,
+    color: COLORS.textSoft,
   },
 
   programFooter: {
-    marginTop: 'auto',
-    paddingTop: 13,
+    marginTop: 12,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
 
   programLink: {
-    color: COLORS.primary,
     fontSize: 10,
     fontWeight: '800',
+    color: COLORS.primary,
   },
 
   programArrow: {
-    color: COLORS.primary,
-    fontSize: 18,
+    fontSize: 16,
+    color: COLORS.gold,
   },
 
+  /* SEVA */
+
   sevaCard: {
-    borderRadius: 27,
-    padding: 20,
-    marginTop: 20,
-    marginBottom: 29,
+    marginTop: 22,
+    borderRadius: 25,
+    padding: 22,
     overflow: 'hidden',
   },
 
   sevaDecorOne: {
     position: 'absolute',
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    right: -75,
-    top: -80,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    right: -50,
+    top: -55,
+    backgroundColor:
+      'rgba(255,255,255,0.07)',
   },
 
   sevaDecorTwo: {
@@ -970,244 +1235,90 @@ const styles = StyleSheet.create({
     width: 110,
     height: 110,
     borderRadius: 55,
-    right: -35,
+    left: -55,
     bottom: -55,
-    backgroundColor: 'rgba(255,211,145,0.09)',
+    backgroundColor:
+      'rgba(255,255,255,0.05)',
   },
 
   sevaIconWrap: {
-    width: 43,
-    height: 43,
+    width: 46,
+    height: 46,
     borderRadius: 15,
-    backgroundColor: 'rgba(255,255,255,0.13)',
+    backgroundColor:
+      'rgba(255,255,255,0.13)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 17,
   },
 
   sevaIcon: {
-    color: '#FFD89D',
-    fontSize: 20,
+    fontSize: 24,
+    color: '#F4D18D',
   },
 
   sevaEyebrow: {
-    color: '#F1C98E',
-    fontSize: 7,
-    fontWeight: '900',
-    letterSpacing: 1.2,
+    marginTop: 18,
+    fontSize: 8,
+    fontWeight: '800',
+    color: '#F0D0A5',
+    letterSpacing: 1.1,
   },
 
   sevaTitle: {
-    color: COLORS.white,
-    fontSize: 23,
+    marginTop: 5,
+    fontSize: 24,
     fontWeight: '800',
-    marginTop: 4,
+    color: COLORS.white,
   },
 
   sevaText: {
-    color: '#F3DDD0',
-    fontSize: 10.5,
-    lineHeight: 17,
-    marginTop: 7,
-    maxWidth: 310,
+    marginTop: 8,
+    fontSize: 11,
+    lineHeight: 18,
+    color: '#F3DED0',
+    maxWidth: '90%',
   },
 
   sevaButton: {
-    height: 46,
-    borderRadius: 14,
+    marginTop: 17,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    borderRadius: 13,
     backgroundColor: COLORS.white,
-    marginTop: 18,
-    paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+  },
+
+  buttonPressed: {
+    opacity: 0.8,
   },
 
   sevaButtonText: {
-    color: COLORS.primaryDark,
     fontSize: 11,
-    fontWeight: '900',
+    fontWeight: '800',
+    color: COLORS.primary,
   },
 
   sevaButtonArrow: {
-    color: COLORS.primary,
-    fontSize: 20,
-  },
-
-  videoCard: {
-    minHeight: 112,
-    backgroundColor: COLORS.surface,
-    borderRadius: 21,
-    padding: 10,
-    flexDirection: 'row',
-    marginBottom: 11,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-
-  videoVisual: {
-    width: 102,
-    borderRadius: 15,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-    marginRight: 12,
-  },
-
-  videoIcon: {
-    color: COLORS.white,
-    fontSize: 29,
-  },
-
-  videoIconDark: {
+    marginLeft: 8,
+    fontSize: 16,
     color: COLORS.primary,
   },
 
-  videoLiveBadge: {
-    position: 'absolute',
-    left: 8,
-    bottom: 8,
-    paddingHorizontal: 7,
-    paddingVertical: 4,
-    borderRadius: 7,
-    backgroundColor: 'rgba(0,0,0,0.25)',
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-
-  videoLiveText: {
-    color: COLORS.white,
-    fontSize: 6.5,
-    fontWeight: '900',
-    letterSpacing: 0.7,
-  },
-
-  videoContent: {
-    flex: 1,
-    justifyContent: 'center',
-    paddingRight: 5,
-  },
-
-  videoLabel: {
-    color: COLORS.gold,
-    fontSize: 6.5,
-    fontWeight: '900',
-    letterSpacing: 1,
-    marginBottom: 4,
-  },
-
-  videoTitle: {
-    color: COLORS.text,
-    fontSize: 14,
-    fontWeight: '800',
-  },
-
-  videoDescription: {
-    color: COLORS.textSoft,
-    fontSize: 9.5,
-    lineHeight: 14,
-    marginTop: 4,
-  },
-
-  watchText: {
-    color: COLORS.primary,
-    fontSize: 9,
-    fontWeight: '900',
-    marginTop: 7,
-  },
-
-  eventCard: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 22,
-    padding: 12,
-    flexDirection: 'row',
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    marginBottom: 28,
-  },
-
-  eventDate: {
-    width: 73,
-    minHeight: 100,
-    borderRadius: 16,
-    backgroundColor: '#F3E2CE',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 13,
-  },
-
-  eventMonth: {
-    color: COLORS.primary,
-    fontSize: 8,
-    fontWeight: '900',
-    letterSpacing: 1,
-  },
-
-  eventDay: {
-    color: COLORS.text,
-    fontSize: 29,
-    lineHeight: 34,
-    fontWeight: '900',
-  },
-
-  eventYear: {
-    color: COLORS.textSoft,
-    fontSize: 7,
-    fontWeight: '800',
-  },
-
-  eventContent: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-
-  eventTag: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#F8EEE3',
-    paddingHorizontal: 7,
-    paddingVertical: 4,
-    borderRadius: 7,
-    marginBottom: 5,
-  },
-
-  eventTagText: {
-    color: COLORS.primary,
-    fontSize: 6,
-    fontWeight: '900',
-    letterSpacing: 0.6,
-  },
-
-  eventTitle: {
-    color: COLORS.text,
-    fontSize: 15,
-    fontWeight: '800',
-  },
-
-  eventDescription: {
-    color: COLORS.textSoft,
-    fontSize: 9.5,
-    lineHeight: 14,
-    marginTop: 4,
-  },
-
-  eventLink: {
-    color: COLORS.primary,
-    fontSize: 9,
-    fontWeight: '900',
-    marginTop: 7,
-  },
+  /* INSIGHTS */
 
   insightsCard: {
     backgroundColor: COLORS.surface,
-    borderRadius: 22,
-    paddingHorizontal: 14,
+    borderRadius: 20,
+    overflow: 'hidden',
     borderWidth: 1,
     borderColor: COLORS.border,
-    overflow: 'hidden',
   },
 
   insightRow: {
-    minHeight: 67,
+    minHeight: 58,
+    paddingHorizontal: 15,
     flexDirection: 'row',
     alignItems: 'center',
   },
@@ -1217,56 +1328,42 @@ const styles = StyleSheet.create({
     borderBottomColor: COLORS.border,
   },
 
+  rowPressed: {
+    backgroundColor: '#FBF3E8',
+  },
+
   insightNumber: {
-    width: 33,
-    height: 33,
-    borderRadius: 11,
-    backgroundColor: COLORS.surfaceSoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 11,
+    width: 34,
   },
 
   insightNumberText: {
-    color: COLORS.primary,
-    fontSize: 8,
-    fontWeight: '900',
+    fontSize: 9,
+    fontWeight: '800',
+    color: COLORS.gold,
   },
 
   insightText: {
     flex: 1,
+    fontSize: 11,
+    lineHeight: 16,
     color: COLORS.text,
-    fontSize: 10.5,
-    lineHeight: 15,
     fontWeight: '600',
   },
 
   insightArrow: {
+    fontSize: 17,
     color: COLORS.primary,
-    fontSize: 19,
-    marginLeft: 9,
+    marginLeft: 8,
   },
+
+  /* BOTTOM */
 
   bottomNote: {
+    marginTop: 25,
+    fontSize: 10,
+    lineHeight: 16,
+    color: COLORS.textSoft,
     textAlign: 'center',
-    color: '#A69A91',
-    fontSize: 9,
-    lineHeight: 14,
-    paddingHorizontal: 25,
-    marginTop: 24,
-  },
-
-  pressed: {
-    opacity: 0.78,
-    transform: [{ scale: 0.985 }],
-  },
-
-  buttonPressed: {
-    opacity: 0.85,
-    transform: [{ scale: 0.985 }],
-  },
-
-  rowPressed: {
-    opacity: 0.65,
+    paddingHorizontal: 20,
   },
 });

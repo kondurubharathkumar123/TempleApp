@@ -1,6 +1,10 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/authMiddleware';
 import { pool } from '../db';
+import {
+  createNotification,
+  sendNotificationRecord,
+} from '../services/notificationService';
 
 /* =========================================================
    DASHBOARD
@@ -1408,30 +1412,130 @@ export const getAllBuildings = async (
 /* =========================================================
    EVENTS
 ========================================================= */
+/* =========================================================
+   EVENTS
+========================================================= */
 
+/**
+ * Create a scheduled event reminder.
+ *
+ * Reminder time:
+ * 24 hours before event start.
+ *
+ * If the event has no start_time,
+ * 09:00 AM is used as the default event time.
+ */
+async function createEventReminderNotification(
+  event: any
+) {
+  try {
+    const eventTime =
+      event.start_time || '09:00:00';
+
+    /*
+     * Temple timezone is treated as IST (+05:30).
+     */
+    const eventDateTime = new Date(
+      `${event.event_date}T${eventTime}+05:30`
+    );
+
+    if (Number.isNaN(eventDateTime.getTime())) {
+      console.error(
+        'Invalid event date/time for reminder:',
+        event.event_date,
+        event.start_time
+      );
+
+      return null;
+    }
+
+    const reminderTime = new Date(
+      eventDateTime.getTime() -
+        24 * 60 * 60 * 1000
+    );
+
+    /*
+     * If the reminder time has already passed,
+     * don't create a scheduled reminder.
+     */
+    if (reminderTime <= new Date()) {
+      console.log(
+        `Reminder time already passed for event ${event.id}`
+      );
+
+      return null;
+    }
+
+    const notification =
+      await createNotification({
+        title: `🔔 Reminder: ${event.title}`,
+        body:
+          `Tomorrow's event is "${event.title}"` +
+          `${
+            event.start_time
+              ? ` at ${event.start_time}`
+              : ''
+          }${
+            event.location
+              ? ` at ${event.location}`
+              : ''
+          }.`,
+        notificationType:
+          'event_reminder',
+        data: {
+          type: 'event_reminder',
+          eventId: event.id,
+          screen: '/events',
+        },
+        targetType: 'all',
+        scheduledAt: reminderTime,
+      });
+
+    console.log(
+      `Event reminder scheduled for event ${event.id}:`,
+      reminderTime.toISOString()
+    );
+
+    return notification;
+  } catch (error) {
+    console.error(
+      'Create event reminder notification error:',
+      error
+    );
+
+    return null;
+  }
+}
+
+
+/**
+ * GET ALL EVENTS FOR ADMIN
+ */
 export const getAllEvents = async (
   req: AuthRequest,
   res: Response
 ) => {
   try {
     const result = await pool.query(
-      `SELECT
-         id,
-         title,
-         description,
-         image_url,
-         event_date,
-         start_time,
-         end_time,
-         location,
-         is_active,
-         created_at,
-         updated_at
-       FROM events
-       ORDER BY
-         event_date ASC NULLS LAST,
-         start_time ASC NULLS LAST,
-         id ASC`
+      `
+      SELECT
+        id,
+        title,
+        description,
+        image_url,
+        event_date,
+        start_time,
+        end_time,
+        location,
+        is_active,
+        created_at,
+        updated_at
+      FROM events
+      ORDER BY
+        event_date ASC NULLS LAST,
+        start_time ASC NULLS LAST,
+        id ASC
+      `
     );
 
     return res.json({
@@ -1439,7 +1543,10 @@ export const getAllEvents = async (
       data: result.rows,
     });
   } catch (error) {
-    console.error('Get all events error:', error);
+    console.error(
+      'Get all events error:',
+      error
+    );
 
     return res.status(500).json({
       success: false,
@@ -1449,6 +1556,9 @@ export const getAllEvents = async (
 };
 
 
+/**
+ * CREATE EVENT
+ */
 export const createEvent = async (
   req: AuthRequest,
   res: Response
@@ -1467,34 +1577,40 @@ export const createEvent = async (
     if (!title || !event_date) {
       return res.status(400).json({
         success: false,
-        message: 'Title and event date are required',
+        message:
+          'Title and event date are required',
       });
     }
 
+    /*
+     * Create event
+     */
     const result = await pool.query(
-      `INSERT INTO events (
-         title,
-         description,
-         image_url,
-         event_date,
-         start_time,
-         end_time,
-         location,
-         is_active
-       )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, TRUE)
-       RETURNING
-         id,
-         title,
-         description,
-         image_url,
-         event_date,
-         start_time,
-         end_time,
-         location,
-         is_active,
-         created_at,
-         updated_at`,
+      `
+      INSERT INTO events (
+        title,
+        description,
+        image_url,
+        event_date,
+        start_time,
+        end_time,
+        location,
+        is_active
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, TRUE)
+      RETURNING
+        id,
+        title,
+        description,
+        image_url,
+        event_date,
+        start_time,
+        end_time,
+        location,
+        is_active,
+        created_at,
+        updated_at
+      `,
       [
         title.trim(),
         description || null,
@@ -1506,13 +1622,77 @@ export const createEvent = async (
       ]
     );
 
+    const event = result.rows[0];
+
+    /*
+     * -------------------------------------------------------
+     * 1. SEND NEW EVENT NOTIFICATION
+     * -------------------------------------------------------
+     */
+    try {
+      const notification =
+        await createNotification({
+          title: `📅 ${event.title}`,
+          body:
+            `New event: ${event.title}` +
+            `${
+              event.start_time
+                ? ` on ${event.event_date} at ${event.start_time}`
+                : ` on ${event.event_date}`
+            }${
+              event.location
+                ? ` at ${event.location}`
+                : ''
+            }.`,
+          notificationType: 'event',
+          data: {
+            type: 'event',
+            eventId: event.id,
+            screen: '/events',
+          },
+          targetType: 'all',
+          scheduledAt: null,
+        });
+
+      await sendNotificationRecord(
+        notification.id
+      );
+
+      console.log(
+        `New event notification processed for event ${event.id}`
+      );
+    } catch (notificationError) {
+      /*
+       * Notification failure must NOT fail event creation.
+       */
+      console.error(
+        'Event notification error:',
+        notificationError
+      );
+    }
+
+
+    /*
+     * -------------------------------------------------------
+     * 2. CREATE EVENT REMINDER
+     * -------------------------------------------------------
+     */
+    await createEventReminderNotification(
+      event
+    );
+
+
     return res.status(201).json({
       success: true,
       message: 'Event created successfully',
-      data: result.rows[0],
+      data: event,
     });
+
   } catch (error) {
-    console.error('Create event error:', error);
+    console.error(
+      'Create event error:',
+      error
+    );
 
     return res.status(500).json({
       success: false,
@@ -1522,6 +1702,9 @@ export const createEvent = async (
 };
 
 
+/**
+ * UPDATE EVENT
+ */
 export const updateEvent = async (
   req: AuthRequest,
   res: Response
@@ -1542,34 +1725,69 @@ export const updateEvent = async (
     if (!title || !event_date) {
       return res.status(400).json({
         success: false,
-        message: 'Title and event date are required',
+        message:
+          'Title and event date are required',
       });
     }
 
+
+    /*
+     * Make sure event exists
+     */
+    const existingResult =
+      await pool.query(
+        `
+        SELECT
+          id,
+          title,
+          event_date,
+          start_time,
+          is_active
+        FROM events
+        WHERE id = $1
+        `,
+        [id]
+      );
+
+    if (
+      existingResult.rows.length === 0
+    ) {
+      return res.status(404).json({
+        success: false,
+        message: 'Event not found',
+      });
+    }
+
+
+    /*
+     * Update event
+     */
     const result = await pool.query(
-      `UPDATE events
-       SET
-         title = $1,
-         description = $2,
-         image_url = $3,
-         event_date = $4,
-         start_time = $5,
-         end_time = $6,
-         location = $7,
-         updated_at = CURRENT_TIMESTAMP
-       WHERE id = $8
-       RETURNING
-         id,
-         title,
-         description,
-         image_url,
-         event_date,
-         start_time,
-         end_time,
-         location,
-         is_active,
-         created_at,
-         updated_at`,
+      `
+      UPDATE events
+      SET
+        title = $1,
+        description = $2,
+        image_url = $3,
+        event_date = $4,
+        start_time = $5,
+        end_time = $6,
+        location = $7,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = $8
+      RETURNING
+        id,
+        title,
+        description,
+        image_url,
+        event_date,
+        start_time,
+        end_time,
+        location,
+        is_active,
+        created_at,
+        updated_at
+      `,
       [
         title.trim(),
         description || null,
@@ -1582,20 +1800,51 @@ export const updateEvent = async (
       ]
     );
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Event not found',
-      });
+    const event = result.rows[0];
+
+
+    /*
+     * -------------------------------------------------------
+     * CANCEL OLD SCHEDULED REMINDER
+     * -------------------------------------------------------
+     */
+    await pool.query(
+      `
+      UPDATE notifications
+      SET
+        status = 'cancelled',
+        updated_at = CURRENT_TIMESTAMP
+      WHERE notification_type = 'event_reminder'
+        AND data->>'eventId' = $1
+        AND status = 'scheduled'
+      `,
+      [String(id)]
+    );
+
+
+    /*
+     * -------------------------------------------------------
+     * CREATE NEW REMINDER
+     * -------------------------------------------------------
+     */
+    if (event.is_active) {
+      await createEventReminderNotification(
+        event
+      );
     }
+
 
     return res.json({
       success: true,
       message: 'Event updated successfully',
-      data: result.rows[0],
+      data: event,
     });
+
   } catch (error) {
-    console.error('Update event error:', error);
+    console.error(
+      'Update event error:',
+      error
+    );
 
     return res.status(500).json({
       success: false,
@@ -1605,60 +1854,145 @@ export const updateEvent = async (
 };
 
 
+/**
+ * UPDATE EVENT STATUS
+ */
 export const updateEventStatus = async (
   req: AuthRequest,
   res: Response
 ) => {
   try {
     const { id } = req.params;
+
     const { is_active } = req.body;
 
     if (typeof is_active !== 'boolean') {
       return res.status(400).json({
         success: false,
-        message: 'is_active must be true or false',
+        message:
+          'is_active must be true or false',
       });
     }
 
-    const result = await pool.query(
-      `UPDATE events
-       SET
-         is_active = $1,
-         updated_at = CURRENT_TIMESTAMP
-       WHERE id = $2
-       RETURNING
-         id,
-         title,
-         description,
-         image_url,
-         event_date,
-         start_time,
-         end_time,
-         location,
-         is_active,
-         created_at,
-         updated_at`,
-      [is_active, id]
-    );
 
-    if (result.rows.length === 0) {
+    /*
+     * Get current status before updating.
+     */
+    const existingResult =
+      await pool.query(
+        `
+        SELECT
+          id,
+          title,
+          event_date,
+          start_time,
+          is_active
+        FROM events
+        WHERE id = $1
+        `,
+        [id]
+      );
+
+    if (
+      existingResult.rows.length === 0
+    ) {
       return res.status(404).json({
         success: false,
         message: 'Event not found',
       });
     }
 
+    const previousEvent =
+      existingResult.rows[0];
+
+
+    /*
+     * Update status
+     */
+    const result = await pool.query(
+      `
+      UPDATE events
+      SET
+        is_active = $1,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = $2
+      RETURNING
+        id,
+        title,
+        description,
+        image_url,
+        event_date,
+        start_time,
+        end_time,
+        location,
+        is_active,
+        created_at,
+        updated_at
+      `,
+      [is_active, id]
+    );
+
+    const event = result.rows[0];
+
+
+    /*
+     * -------------------------------------------------------
+     * EVENT DEACTIVATED
+     * -------------------------------------------------------
+     *
+     * Cancel any pending reminder.
+     */
+    if (!is_active) {
+      await pool.query(
+        `
+        UPDATE notifications
+        SET
+          status = 'cancelled',
+          updated_at = CURRENT_TIMESTAMP
+        WHERE notification_type = 'event_reminder'
+          AND data->>'eventId' = $1
+          AND status = 'scheduled'
+        `,
+        [String(id)]
+      );
+    }
+
+
+    /*
+     * -------------------------------------------------------
+     * EVENT REACTIVATED
+     * -------------------------------------------------------
+     *
+     * If event changes from inactive -> active,
+     * create a fresh reminder.
+     */
+    if (
+      previousEvent.is_active === false &&
+      is_active === true
+    ) {
+      await createEventReminderNotification(
+        event
+      );
+    }
+
+
     return res.json({
       success: true,
-      message: 'Event status updated successfully',
-      data: result.rows[0],
+      message:
+        'Event status updated successfully',
+      data: event,
     });
+
   } catch (error) {
-    console.error('Update event status error:', error);
+    console.error(
+      'Update event status error:',
+      error
+    );
 
     return res.status(500).json({
       success: false,
-      message: 'Failed to update event status',
+      message:
+        'Failed to update event status',
     });
   }
 };

@@ -1,6 +1,9 @@
 import { Request, Response } from 'express';
 import { pool } from '../db';
-
+import {
+  createNotification,
+  sendNotificationRecord,
+} from '../services/notificationService';
 const VALID_LABELS = ['live', 'watch'] as const;
 
 type VideoLabel = (typeof VALID_LABELS)[number];
@@ -145,6 +148,9 @@ function getYouTubeThumbnail(url: string): string | null {
 /**
  * POST /admin/darshan-videos
  */
+/**
+ * POST /admin/darshan-videos
+ */
 export const createDarshanVideo = async (
   req: Request,
   res: Response
@@ -161,43 +167,54 @@ export const createDarshanVideo = async (
     if (!title || !url) {
       return res.status(400).json({
         success: false,
-        message: 'Title and YouTube URL are required.',
+        message:
+          'Title and YouTube URL are required.',
       });
     }
 
-    if (label !== 'live' && label !== 'watch') {
+    if (
+      label !== 'live' &&
+      label !== 'watch'
+    ) {
       return res.status(400).json({
         success: false,
-        message: 'Label must be live or watch.',
+        message:
+          'Label must be live or watch.',
       });
     }
 
     /*
-      Thumbnail can come from either:
-      1. Uploaded image
-      2. Thumbnail URL
+     * Thumbnail can come from either:
+     * 1. Uploaded image
+     * 2. Thumbnail URL
+     *
+     * Uploaded image takes priority.
+     */
+    let finalThumbnailUrl =
+      thumbnail_url?.trim() || null;
 
-      Uploaded image takes priority.
-    */
-   let finalThumbnailUrl = thumbnail_url?.trim() || null;
+    /*
+     * Uploaded thumbnail has highest priority.
+     */
+    if (req.file) {
+      finalThumbnailUrl =
+        `/uploads/darshan/${req.file.filename}`;
+    }
 
-/*
- * Uploaded thumbnail has highest priority.
- */
-if (req.file) {
-  finalThumbnailUrl =
-    `/uploads/darshan/${req.file.filename}`;
-}
+    /*
+     * If admin did not provide a thumbnail,
+     * automatically use the YouTube thumbnail.
+     */
+    if (!finalThumbnailUrl) {
+      finalThumbnailUrl =
+        getYouTubeThumbnail(url);
+    }
 
-/*
- * If admin did not provide a thumbnail,
- * automatically use the YouTube thumbnail.
- */
-if (!finalThumbnailUrl) {
-  finalThumbnailUrl =
-    getYouTubeThumbnail(url);
-}
-
+    /*
+     * -------------------------------------------------------
+     * CREATE DARSHAN VIDEO
+     * -------------------------------------------------------
+     */
     const result = await pool.query(
       `
       INSERT INTO darshan_videos
@@ -213,18 +230,80 @@ if (!finalThumbnailUrl) {
       RETURNING *
       `,
       [
-        title,
-        description || null,
+        title.trim(),
+        description?.trim() || null,
         label,
-        url,
+        url.trim(),
         finalThumbnailUrl,
       ]
     );
 
+    const createdVideo =
+      result.rows[0];
+
+
+    /*
+     * -------------------------------------------------------
+     * SEND NOTIFICATION
+     * -------------------------------------------------------
+     *
+     * Notification failure must NOT cause the
+     * Darshan video creation itself to fail.
+     */
+    try {
+      const notification =
+        await createNotification({
+          title:
+            label === 'live'
+              ? `🔴 Live Darshan`
+              : `🎥 New Darshan Video`,
+
+          body:
+            label === 'live'
+              ? `${createdVideo.title} is now available to watch live.`
+              : `${createdVideo.title} is now available to watch.`,
+
+          notificationType:
+            'darshan_video',
+
+          data: {
+            type: 'darshan_video',
+            videoId: createdVideo.id,
+            label: createdVideo.label,
+            screen: '/darshan-videos',
+          },
+
+          targetType: 'all',
+
+          scheduledAt: null,
+        });
+
+      await sendNotificationRecord(
+        notification.id
+      );
+
+      console.log(
+        `Darshan video notification processed for video ${createdVideo.id}`
+      );
+
+    } catch (notificationError) {
+      console.error(
+        'Darshan video notification error:',
+        notificationError
+      );
+    }
+
+
+    /*
+     * -------------------------------------------------------
+     * RESPONSE
+     * -------------------------------------------------------
+     */
     return res.status(201).json({
       success: true,
-      data: result.rows[0],
+      data: createdVideo,
     });
+
   } catch (error) {
     console.error(
       'Create darshan video error:',
@@ -233,7 +312,8 @@ if (!finalThumbnailUrl) {
 
     return res.status(500).json({
       success: false,
-      message: 'Failed to create darshan video.',
+      message:
+        'Failed to create darshan video.',
     });
   }
 };

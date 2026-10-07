@@ -5,6 +5,11 @@ import { uploadGalleryImage } from '../middleware/uploadMiddleware';
 import {
   getAdminDeities, createDeity, updateDeity, deactivateDeity,
   getAdminGallery, createGalleryItem, updateGalleryItem, deleteGalleryItem,
+   getAdminAnnouncements,
+  createAnnouncement,
+  updateAnnouncement,
+  deleteAnnouncement,
+    sendAnnouncementNotification,
 } from '../controllers/adminContentController';
 
 const router = Router();
@@ -32,4 +37,31 @@ router.delete(
   deleteGalleryItem
 );
 
+// ========================================
+// ANNOUNCEMENTS
+// ========================================
+
+router.get(
+  '/announcements',
+  getAdminAnnouncements
+);
+
+router.post(
+  '/announcements',
+  createAnnouncement
+);
+
+router.put(
+  '/announcements/:id',
+  updateAnnouncement
+);
+
+router.delete(
+  '/announcements/:id',
+  deleteAnnouncement
+);
+router.post(
+  '/announcements/:id/send',
+  sendAnnouncementNotification
+);
 export default router;

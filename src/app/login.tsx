@@ -11,13 +11,17 @@ import { router } from 'expo-router';
 
 import { apiRequest } from '@/services/api';
 import { saveToken } from '@/services/authStorage';
+import { registerForPushNotificationsAsync } from '@/services/notifications';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Real backend login
+  // =========================
+  // REAL LOGIN
+  // =========================
+
   const handleLogin = async () => {
     if (!email.trim() || !password) {
       Alert.alert(
@@ -39,9 +43,15 @@ export default function LoginScreen() {
       });
 
       if (response.success && response.data?.token) {
+        // Save JWT first
         await saveToken(response.data.token);
 
+        // Register this device for push notifications
+        await registerForPushNotificationsAsync();
+
+        // Go to home
         router.replace('/(tabs)');
+
         return;
       }
 
@@ -52,37 +62,41 @@ export default function LoginScreen() {
     } catch (error: any) {
       Alert.alert(
         'Login Failed',
-        error?.message || 'Unable to connect to the server.'
+        error?.message ||
+          'Unable to connect to the server.'
       );
     } finally {
       setLoading(false);
     }
   };
 
-  // Temporary demo login - does not require backend
-  const handleDemoLogin = async () => {
-    try {
-      await saveToken('demo-token');
-      router.replace('/(tabs)');
-    } catch (error) {
-      Alert.alert(
-        'Demo Login Failed',
-        'Unable to open the demo.'
-      );
-    }
+  // =========================
+  // OPEN REGISTER SCREEN
+  // =========================
+
+  const handleRegister = () => {
+    router.push('/register');
   };
 
   return (
     <View style={styles.container}>
       <Text style={styles.label}>TEMPLE</Text>
 
-      <Text style={styles.title}>Welcome Back</Text>
+      <Text style={styles.title}>
+        Welcome Back
+      </Text>
 
       <Text style={styles.subtitle}>
         Login to manage your bookings and temple activities.
       </Text>
 
-      <Text style={styles.inputLabel}>Email</Text>
+      {/* =========================
+          EMAIL
+      ========================= */}
+
+      <Text style={styles.inputLabel}>
+        Email
+      </Text>
 
       <TextInput
         style={styles.input}
@@ -95,7 +109,13 @@ export default function LoginScreen() {
         autoCorrect={false}
       />
 
-      <Text style={styles.inputLabel}>Password</Text>
+      {/* =========================
+          PASSWORD
+      ========================= */}
+
+      <Text style={styles.inputLabel}>
+        Password
+      </Text>
 
       <TextInput
         style={styles.input}
@@ -107,7 +127,10 @@ export default function LoginScreen() {
         autoCapitalize="none"
       />
 
-      {/* Real Login */}
+      {/* =========================
+          LOGIN BUTTON
+      ========================= */}
+
       <TouchableOpacity
         style={[
           styles.loginButton,
@@ -117,24 +140,34 @@ export default function LoginScreen() {
         disabled={loading}
       >
         <Text style={styles.loginButtonText}>
-          {loading ? 'Logging in...' : 'Login'}
+          {loading
+            ? 'Logging in...'
+            : 'Login'}
         </Text>
       </TouchableOpacity>
 
-      {/* Temporary Demo Login */}
+      {/* =========================
+          REGISTER BUTTON
+      ========================= */}
+
       <TouchableOpacity
-        style={styles.demoButton}
-        onPress={handleDemoLogin}
+        style={styles.registerButton}
+        onPress={handleRegister}
         disabled={loading}
       >
-        <Text style={styles.demoButtonText}>
-          Continue as Demo User
+        <Text style={styles.registerButtonText}>
+          Create Account
         </Text>
       </TouchableOpacity>
+
+      {/* =========================
+          BACK
+      ========================= */}
 
       <TouchableOpacity
         style={styles.backButton}
         onPress={() => router.back()}
+        disabled={loading}
       >
         <Text style={styles.backButtonText}>
           Back
@@ -212,7 +245,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
-  demoButton: {
+  registerButton: {
     height: 45,
     borderRadius: 15,
     backgroundColor: '#F4E0C5',
@@ -221,7 +254,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
 
-  demoButtonText: {
+  registerButtonText: {
     color: '#8B4513',
     fontSize: 13,
     fontWeight: '700',

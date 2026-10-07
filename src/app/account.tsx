@@ -1,15 +1,101 @@
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import {
+  Alert,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { apiRequest } from '@/services/api';
+import { removeToken } from '@/services/authStorage';
+
+type User = {
+  id: number;
+  full_name: string;
+  email: string;
+  phone?: string | null;
+  role?: string;
+};
+
 export default function AccountScreen() {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const loadUser = async () => {
+    try {
+      setLoading(true);
+
+      const response = await apiRequest('/auth/me');
+
+      if (response.success && response.data) {
+        setUser(response.data);
+        return;
+      }
+
+      throw new Error(
+        response.message || 'Unable to load account'
+      );
+    } catch (error: any) {
+      console.error('Failed to load account:', error);
+
+      await removeToken();
+
+      Alert.alert(
+        'Session Expired',
+        'Please login again to continue.',
+        [
+          {
+            text: 'Login',
+            onPress: () => router.replace('/login'),
+          },
+        ]
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      loadUser();
+    }, [])
+  );
+
+  const handleLogout = () => {
+    Alert.alert(
+      'Logout',
+      'Are you sure you want to logout?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Logout',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await removeToken();
+
+              router.replace('/login');
+            } catch (error) {
+              console.error('Logout error:', error);
+
+              Alert.alert(
+                'Logout Failed',
+                'Unable to logout. Please try again.'
+              );
+            }
+          },
+        },
+      ]
+    );
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView
@@ -18,7 +104,9 @@ export default function AccountScreen() {
       >
         <Text style={styles.label}>DEVOTEE</Text>
 
-        <Text style={styles.title}>My Account</Text>
+        <Text style={styles.title}>
+          My Account
+        </Text>
 
         <Text style={styles.subtitle}>
           Manage your devotee profile and temple activities.
@@ -31,11 +119,23 @@ export default function AccountScreen() {
           </View>
 
           <View style={styles.profileInfo}>
-            <Text style={styles.name}>Devotee</Text>
+            <Text style={styles.name}>
+              {loading
+                ? 'Loading...'
+                : user?.full_name || 'Devotee'}
+            </Text>
 
             <Text style={styles.email}>
-              Login to manage your account
+              {loading
+                ? 'Loading account details...'
+                : user?.email || ''}
             </Text>
+
+            {!!user?.phone && (
+              <Text style={styles.phone}>
+                {user.phone}
+              </Text>
+            )}
           </View>
         </View>
 
@@ -90,6 +190,7 @@ export default function AccountScreen() {
           />
         </View>
 
+        {/* Spiritual Journey */}
         <View style={styles.infoCard}>
           <Text style={styles.infoIcon}>🙏</Text>
 
@@ -106,6 +207,19 @@ export default function AccountScreen() {
           </View>
         </View>
 
+        {/* Logout */}
+        <TouchableOpacity
+          style={styles.logoutButton}
+          onPress={handleLogout}
+        >
+          <Text style={styles.logoutIcon}>↪</Text>
+
+          <Text style={styles.logoutButtonText}>
+            Logout
+          </Text>
+        </TouchableOpacity>
+
+        {/* Back to Home */}
         <TouchableOpacity
           style={styles.homeButton}
           onPress={() => router.replace('/(tabs)')}
@@ -137,11 +251,15 @@ function AccountItem({
       activeOpacity={0.8}
     >
       <View style={styles.itemIcon}>
-        <Text style={styles.itemIconText}>{icon}</Text>
+        <Text style={styles.itemIconText}>
+          {icon}
+        </Text>
       </View>
 
       <View style={styles.itemContent}>
-        <Text style={styles.itemTitle}>{title}</Text>
+        <Text style={styles.itemTitle}>
+          {title}
+        </Text>
 
         <Text style={styles.itemDescription}>
           {description}
@@ -222,6 +340,12 @@ const styles = StyleSheet.create({
   email: {
     fontSize: 10,
     color: '#777',
+  },
+
+  phone: {
+    fontSize: 10,
+    color: '#777',
+    marginTop: 3,
   },
 
   sectionTitle: {
@@ -314,6 +438,28 @@ const styles = StyleSheet.create({
     fontSize: 10,
     lineHeight: 15,
     color: '#777',
+  },
+
+  logoutButton: {
+    height: 48,
+    borderRadius: 15,
+    backgroundColor: '#F4E0C5',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+
+  logoutIcon: {
+    fontSize: 20,
+    color: '#8B4513',
+    marginRight: 8,
+  },
+
+  logoutButtonText: {
+    color: '#8B4513',
+    fontSize: 13,
+    fontWeight: '700',
   },
 
   homeButton: {

@@ -19,9 +19,14 @@ type Activity = {
   image_url: string | null;
   activity_date: string | null;
   location: string | null;
+  section_id: number;
+  section_name: string | null;
+  section_description: string | null;
+  section_icon: string | null;
+  section_image_url: string | null;
+  display_order: number;
   is_active: boolean;
 };
-
 export default function ActivityDetailsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
 

@@ -40,7 +40,10 @@
       ],
       "expo-secure-store",
       "@react-native-community/datetimepicker",
-      "expo-audio"
+      "expo-audio",
+      "expo-sharing",
+       "expo-notifications"
+
     ],
     "experiments": {
       "typedRoutes": true,

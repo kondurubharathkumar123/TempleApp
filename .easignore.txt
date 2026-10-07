@@ -1,0 +1,9 @@
+node_modules/
+backend/
+admin/
+TEMPLE IMAGES/
+.expo/
+.vscode/
+.claude/
+.git/
+*.log

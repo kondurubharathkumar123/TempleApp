@@ -8,17 +8,26 @@ export const getAdminActivities = async (
   try {
     const result = await pool.query(
       `SELECT
-         id,
-         title,
-         description,
-         image_url,
-         activity_date,
-         location,
-         is_active,
-         created_at,
-         updated_at
-       FROM activities
-       ORDER BY activity_date ASC NULLS LAST, id ASC`
+         a.id,
+         a.title,
+         a.description,
+         a.image_url,
+         a.activity_date,
+         a.location,
+         a.section_id,
+         a.display_order,
+         a.is_active,
+         a.created_at,
+         a.updated_at,
+         s.name AS section_name
+       FROM activities a
+       LEFT JOIN activity_sections s
+         ON a.section_id = s.id
+       ORDER BY
+         s.display_order ASC NULLS LAST,
+         a.display_order ASC,
+         a.activity_date ASC NULLS LAST,
+         a.id ASC`
     );
 
     res.json({
@@ -46,12 +55,37 @@ export const createActivity = async (
       image_url,
       activity_date,
       location,
+      section_id,
+      display_order,
     } = req.body;
 
     if (!title || !title.trim()) {
       return res.status(400).json({
         success: false,
         message: 'Activity title is required',
+      });
+    }
+
+    if (!section_id) {
+      return res.status(400).json({
+        success: false,
+        message: 'Activity section is required',
+      });
+    }
+
+    // Check whether the selected section exists and is active
+    const sectionResult = await pool.query(
+      `SELECT id
+       FROM activity_sections
+       WHERE id = $1
+         AND is_active = TRUE`,
+      [section_id]
+    );
+
+    if (sectionResult.rows.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Selected activity section not found or inactive',
       });
     }
 
@@ -63,9 +97,11 @@ export const createActivity = async (
          image_url,
          activity_date,
          location,
+         section_id,
+         display_order,
          is_active
        )
-       VALUES ($1, $2, $3, $4, $5, TRUE)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, TRUE)
        RETURNING
          id,
          title,
@@ -73,15 +109,19 @@ export const createActivity = async (
          image_url,
          activity_date,
          location,
+         section_id,
+         display_order,
          is_active,
          created_at,
          updated_at`,
       [
         title.trim(),
-        description || null,
-        image_url || null,
+        description?.trim() || null,
+        image_url?.trim() || null,
         activity_date || null,
-        location || null,
+        location?.trim() || null,
+        section_id,
+        Number(display_order) || 0,
       ]
     );
 
@@ -112,6 +152,8 @@ export const updateActivity = async (
       image_url,
       activity_date,
       location,
+      section_id,
+      display_order,
       is_active,
     } = req.body;
 
@@ -119,6 +161,29 @@ export const updateActivity = async (
       return res.status(400).json({
         success: false,
         message: 'Activity title is required',
+      });
+    }
+
+    if (!section_id) {
+      return res.status(400).json({
+        success: false,
+        message: 'Activity section is required',
+      });
+    }
+
+    // Check whether the selected section exists and is active
+    const sectionResult = await pool.query(
+      `SELECT id
+       FROM activity_sections
+       WHERE id = $1
+         AND is_active = TRUE`,
+      [section_id]
+    );
+
+    if (sectionResult.rows.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Selected activity section not found or inactive',
       });
     }
 
@@ -130,9 +195,11 @@ export const updateActivity = async (
          image_url = $3,
          activity_date = $4,
          location = $5,
-         is_active = $6,
+         section_id = $6,
+         display_order = $7,
+         is_active = $8,
          updated_at = NOW()
-       WHERE id = $7
+       WHERE id = $9
        RETURNING
          id,
          title,
@@ -140,15 +207,19 @@ export const updateActivity = async (
          image_url,
          activity_date,
          location,
+         section_id,
+         display_order,
          is_active,
          created_at,
          updated_at`,
       [
         title.trim(),
-        description || null,
-        image_url || null,
+        description?.trim() || null,
+        image_url?.trim() || null,
         activity_date || null,
-        location || null,
+        location?.trim() || null,
+        section_id,
+        Number(display_order) || 0,
         typeof is_active === 'boolean'
           ? is_active
           : true,
@@ -197,6 +268,8 @@ export const deactivateActivity = async (
          image_url,
          activity_date,
          location,
+         section_id,
+         display_order,
          is_active,
          created_at,
          updated_at`,

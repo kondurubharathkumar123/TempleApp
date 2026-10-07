@@ -3,8 +3,10 @@ import React, {
   useEffect,
   useState,
 } from 'react';
-import { Share } from 'react-native';
+
 import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
+import * as MediaLibrary from 'expo-media-library/legacy';
 
 import {
   ActivityIndicator,
@@ -21,10 +23,19 @@ import {
 
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { apiRequest, API_BASE_URL } from '@/services/api';
+import {
+  apiRequest,
+  API_BASE_URL,
+} from '@/services/api';
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } =
-  Dimensions.get('window');
+const {
+  width: SCREEN_WIDTH,
+  height: SCREEN_HEIGHT,
+} = Dimensions.get('window');
+
+/* ===================================================== */
+/* TYPES */
+/* ===================================================== */
 
 type GalleryItem = {
   id: number;
@@ -32,15 +43,32 @@ type GalleryItem = {
   description: string | null;
   image_url: string;
   category: string | null;
+  album_id: number | null;
   is_active: boolean;
 };
 
-const getImageUrl = (imageUrl: string) => {
+type GalleryAlbum = {
+  id: number;
+  name: string;
+  description: string | null;
+  display_order: number;
+  images: GalleryItem[];
+};
+
+/* ===================================================== */
+/* IMAGE URL */
+/* ===================================================== */
+
+const getImageUrl = (
+  imageUrl: string,
+) => {
   if (!imageUrl) {
     return '';
   }
 
-  // Already a complete URL
+  /*
+   * Already a complete URL.
+   */
   if (
     imageUrl.startsWith('http://') ||
     imageUrl.startsWith('https://')
@@ -48,670 +76,1393 @@ const getImageUrl = (imageUrl: string) => {
     return imageUrl;
   }
 
-  // API_BASE_URL is:
-  // https://templeapp-s96e.onrender.com/api
-  // We need:
-  // https://templeapp-s96e.onrender.com/uploads/...
-  const serverUrl = API_BASE_URL.replace(/\/api\/?$/, '');
+  /*
+   * API_BASE_URL:
+   *
+   * https://templeapp-s96e.onrender.com/api
+   *
+   * Image:
+   *
+   * /uploads/gallery/image.jpg
+   *
+   * Required:
+   *
+   * https://templeapp-s96e.onrender.com/uploads/...
+   */
 
-  return `${serverUrl}${imageUrl.startsWith('/') ? '' : '/'}${imageUrl}`;
+  const serverUrl =
+    API_BASE_URL.replace(
+      /\/api\/?$/,
+      '',
+    );
+
+  return `${serverUrl}${
+    imageUrl.startsWith('/')
+      ? ''
+      : '/'
+  }${imageUrl}`;
 };
 
+/* ===================================================== */
+/* GALLERY SCREEN */
+/* ===================================================== */
+
 export default function GalleryScreen() {
-  const [galleryItems, setGalleryItems] = useState<GalleryItem[]>(
-    [],
+  /*
+   * ===================================================
+   * GALLERY DATA
+   * ===================================================
+   */
+
+  /*
+   * Flat gallery list.
+   *
+   * We retain this for general compatibility,
+   * while galleryAlbums controls the new
+   * heading-based UI.
+   */
+  const [
+    galleryItems,
+    setGalleryItems,
+  ] = useState<GalleryItem[]>([]);
+
+  /*
+   * Dynamic headings created by Admin.
+   *
+   * Example:
+   *
+   * Temple Entrance
+   *   - photo
+   *   - photo
+   *
+   * Anjaneya Swamy
+   *   - photo
+   *   - photo
+   */
+  const [
+    galleryAlbums,
+    setGalleryAlbums,
+  ] = useState<GalleryAlbum[]>([]);
+
+  const [
+    loading,
+    setLoading,
+  ] = useState(true);
+
+  const [
+    error,
+    setError,
+  ] = useState<string | null>(
+    null,
   );
 
-  const [loading, setLoading] = useState(true);
+  /*
+   * ===================================================
+   * VIEW ALL
+   * ===================================================
+   */
 
-  const [error, setError] = useState<string | null>(null);
+  const [
+    showAllPhotos,
+    setShowAllPhotos,
+  ] = useState(false);
 
-  const [showAllPhotos, setShowAllPhotos] =
-    useState(false);
+  /*
+   * Which heading is currently selected.
+   */
+  const [
+    selectedAlbum,
+    setSelectedAlbum,
+  ] =
+    useState<GalleryAlbum | null>(
+      null,
+    );
 
-  const [selectedImageIndex, setSelectedImageIndex] =
-    useState<number | null>(null);
+  /*
+   * ===================================================
+   * IMAGE VIEWER
+   * ===================================================
+   */
 
-  const loadGallery = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
+  const [
+    selectedImageIndex,
+    setSelectedImageIndex,
+  ] =
+    useState<number | null>(
+      null,
+    );
 
-      const response = await apiRequest<{
-        success: boolean;
-        data: GalleryItem[];
-      }>('/gallery');
+  const [
+    imageActionLoading,
+    setImageActionLoading,
+  ] = useState<
+    'share' | 'download' | null
+  >(null);
 
-      if (response.success) {
-        setGalleryItems(response.data || []);
-      } else {
+  /*
+   * ===================================================
+   * LOAD GALLERY
+   * ===================================================
+   */
+
+  const loadGallery =
+    useCallback(async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        /*
+         * New grouped gallery API.
+         */
+        const response =
+          await apiRequest<{
+            success: boolean;
+            data: GalleryAlbum[];
+          }>('/gallery/albums');
+
+        if (response.success) {
+          /*
+           * Hide empty headings.
+           *
+           * If Admin creates a heading but
+           * hasn't uploaded a photo yet,
+           * devotees don't see an empty section.
+           */
+          const albumsWithImages =
+            (
+              response.data || []
+            ).filter(
+              (album) =>
+                Array.isArray(
+                  album.images,
+                ) &&
+                album.images.length >
+                  0,
+            );
+
+          /*
+           * Save grouped data.
+           */
+          setGalleryAlbums(
+            albumsWithImages,
+          );
+
+          /*
+           * Create flat array too.
+           */
+          const allImages =
+            albumsWithImages.flatMap(
+              (album) =>
+                album.images,
+            );
+
+          setGalleryItems(
+            allImages,
+          );
+
+          /*
+           * If View All is currently
+           * displaying an album and
+           * gallery refreshes, update
+           * the selected album.
+           */
+          setSelectedAlbum(
+            (
+              currentAlbum,
+            ) => {
+              if (
+                !currentAlbum
+              ) {
+                return null;
+              }
+
+              return (
+                albumsWithImages.find(
+                  (album) =>
+                    album.id ===
+                    currentAlbum.id,
+                ) || null
+              );
+            },
+          );
+        } else {
+          setGalleryAlbums([]);
+          setGalleryItems([]);
+          setSelectedAlbum(
+            null,
+          );
+        }
+      } catch (err) {
+        console.error(
+          'Gallery loading error:',
+          err,
+        );
+
+        setError(
+          'Unable to load gallery',
+        );
+
+        setGalleryAlbums([]);
         setGalleryItems([]);
+        setSelectedAlbum(null);
+      } finally {
+        setLoading(false);
       }
-    } catch (err) {
-      console.error('Gallery loading error:', err);
+    }, []);
 
-      setError('Unable to load gallery');
-
-      setGalleryItems([]);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
+  /*
+   * Initial load.
+   */
   useEffect(() => {
     loadGallery();
   }, [loadGallery]);
 
   /*
-   * Reload gallery whenever this screen becomes visible again.
-   *
-   * This is useful when Admin changes gallery content
-   * and the user comes back to this screen.
+   * Refresh every 60 seconds.
    */
   useEffect(() => {
-    const interval = setInterval(() => {
-      loadGallery();
-    }, 60000);
+    const interval =
+      setInterval(() => {
+        loadGallery();
+      }, 60000);
 
-    return () => clearInterval(interval);
+    return () =>
+      clearInterval(
+        interval,
+      );
   }, [loadGallery]);
 
-  const openImage = (index: number) => {
-    setSelectedImageIndex(index);
+  /*
+   * ===================================================
+   * OPEN ALBUM
+   * ===================================================
+   */
+
+  const openAlbum = (
+    album: GalleryAlbum,
+  ) => {
+    setSelectedAlbum(album);
+
+    setSelectedImageIndex(
+      null,
+    );
+
+    setShowAllPhotos(true);
   };
+
+  /*
+   * ===================================================
+   * CLOSE ALBUM
+   * ===================================================
+   */
+
+  const closeAlbum = () => {
+    setShowAllPhotos(false);
+
+    setSelectedImageIndex(
+      null,
+    );
+
+    setSelectedAlbum(null);
+  };
+
+  /*
+   * ===================================================
+   * VIEWER IMAGES
+   * ===================================================
+   *
+   * If the user opened a picture belonging
+   * to one heading, previous/next should
+   * stay inside that heading.
+   */
+
+  const viewerImages =
+    selectedAlbum
+      ? selectedAlbum.images
+      : galleryItems;
+
+  /*
+   * ===================================================
+   * OPEN IMAGE
+   * ===================================================
+   */
+
+  const openImage = (
+    index: number,
+    album?: GalleryAlbum,
+  ) => {
+    /*
+     * When opening directly from one of
+     * the main-page album previews,
+     * remember that album.
+     */
+    if (album) {
+      setSelectedAlbum(
+        album,
+      );
+    }
+
+    setSelectedImageIndex(
+      index,
+    );
+  };
+
+  /*
+   * ===================================================
+   * CLOSE IMAGE
+   * ===================================================
+   */
 
   const closeImage = () => {
-    setSelectedImageIndex(null);
-  };
-
-  const nextImage = () => {
-    if (
-      selectedImageIndex === null ||
-      galleryItems.length === 0
-    ) {
-      return;
-    }
-
     setSelectedImageIndex(
-      (selectedImageIndex + 1) % galleryItems.length,
+      null,
     );
-  };
 
-  const previousImage = () => {
-    if (
-      selectedImageIndex === null ||
-      galleryItems.length === 0
-    ) {
-      return;
-    }
-
-    setSelectedImageIndex(
-      selectedImageIndex === 0
-        ? galleryItems.length - 1
-        : selectedImageIndex - 1,
-    );
-  };
-
-  const selectedImage =
-    selectedImageIndex !== null
-      ? galleryItems[selectedImageIndex]
-      : null;
-
-  const [imageActionLoading, setImageActionLoading] = useState<
-    'share' | 'download' | null
-  >(null);
-
-  const getImageFileUri = async (imageUrl: string) => {
-    const remoteUrl = getImageUrl(imageUrl);
-    const extensionMatch = remoteUrl.match(/\.(jpg|jpeg|png|webp)(?:\?|$)/i);
-    const extension = extensionMatch?.[1]?.toLowerCase() || 'jpg';
-    const fileName = `temple-gallery-${Date.now()}.${extension}`;
-    const localUri = `${FileSystem.cacheDirectory}${fileName}`;
-
-    const result = await FileSystem.downloadAsync(remoteUrl, localUri);
-    return result.uri;
-  };
-
-  const shareSelectedImage = async () => {
-    if (!selectedImage) return;
-
-    try {
-      setImageActionLoading('share');
-
-      const localUri = await getImageFileUri(selectedImage.image_url);
-
-      // On iOS this shares the local image file directly.
-      // On Android, Sharing via the native share sheet is also supported
-      // through the file URI returned by Expo FileSystem.
-      await Share.share({
-        title: selectedImage.title || 'Temple Gallery Image',
-        message: selectedImage.title || 'Temple Gallery',
-        url: localUri,
-      });
-    } catch (err) {
-      console.error('Gallery image share error:', err);
-    } finally {
-      setImageActionLoading(null);
-    }
-  };
-
-  const downloadSelectedImage = async () => {
-    if (!selectedImage) return;
-
-    try {
-      setImageActionLoading('download');
-
-      const localUri = await getImageFileUri(selectedImage.image_url);
-
-      // Android: let the user choose where to save the image.
-      // This avoids expo-media-library and therefore does not require
-      // the ExpoMediaLibraryNext native module.
-      if (FileSystem.StorageAccessFramework) {
-        const permissions =
-          await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
-
-        if (!permissions.granted) {
-          return;
-        }
-
-        const remoteUrl = getImageUrl(selectedImage.image_url);
-        const extensionMatch = remoteUrl.match(
-          /\\.(jpg|jpeg|png|webp)(?:\\?|$)/i,
-        );
-        const extension = extensionMatch?.[1]?.toLowerCase() || 'jpg';
-
-        const safeTitle = (selectedImage.title || 'temple-gallery-image')
-          .replace(/[^a-zA-Z0-9-_ ]/g, '')
-          .trim()
-          .replace(/\\s+/g, '-')
-          .slice(0, 50);
-
-        const fileName = `${safeTitle || 'temple-gallery-image'}-${Date.now()}.${extension}`;
-
-        const fileContent = await FileSystem.readAsStringAsync(localUri, {
-          encoding: FileSystem.EncodingType.Base64,
-        });
-
-        const destinationUri =
-          await FileSystem.StorageAccessFramework.createFileAsync(
-            permissions.directoryUri,
-            fileName,
-            `image/${extension === 'jpg' ? 'jpeg' : extension}`,
-          );
-
-        await FileSystem.writeAsStringAsync(destinationUri, fileContent, {
-          encoding: FileSystem.EncodingType.Base64,
-        });
-
-        return;
-      }
-
-      // Fallback for platforms without Storage Access Framework.
-      console.warn('Storage Access Framework is not available on this platform.');
-    } catch (err) {
-      console.error('Gallery image download error:', err);
-    } finally {
-      setImageActionLoading(null);
+    /*
+     * When the image was opened directly
+     * from the main Gallery page, clear
+     * the temporary album selection.
+     *
+     * When View All is open, retain it.
+     */
+    if (!showAllPhotos) {
+      setSelectedAlbum(
+        null,
+      );
     }
   };
 
   /*
-   * First 5 images are used on the main Gallery page.
+   * ===================================================
+   * NEXT IMAGE
+   * ===================================================
    */
-  const previewImages = galleryItems.slice(0, 5);
 
-  return (
-    <SafeAreaView style={styles.container}>
+  const nextImage = () => {
+    if (
+      selectedImageIndex ===
+        null ||
+      viewerImages.length ===
+        0
+    ) {
+      return;
+    }
+
+    setSelectedImageIndex(
+      (
+        selectedImageIndex +
+        1
+      ) %
+        viewerImages.length,
+    );
+  };
+
+  /*
+   * ===================================================
+   * PREVIOUS IMAGE
+   * ===================================================
+   */
+
+  const previousImage =
+    () => {
+      if (
+        selectedImageIndex ===
+          null ||
+        viewerImages.length ===
+          0
+      ) {
+        return;
+      }
+
+      setSelectedImageIndex(
+        selectedImageIndex ===
+          0
+          ? viewerImages.length -
+              1
+          : selectedImageIndex -
+              1,
+      );
+    };
+
+  /*
+   * ===================================================
+   * CURRENT IMAGE
+   * ===================================================
+   */
+
+  const selectedImage =
+    selectedImageIndex !==
+      null
+      ? viewerImages[
+          selectedImageIndex
+        ]
+      : null;
+
+  /*
+   * ===================================================
+   * DOWNLOAD IMAGE TO TEMP FILE
+   * ===================================================
+   */
+
+  const getImageFileUri =
+    async (
+      imageUrl: string,
+    ) => {
+      const remoteUrl =
+        getImageUrl(
+          imageUrl,
+        );
+
+      const extensionMatch =
+        remoteUrl.match(
+          /\.(jpg|jpeg|png|webp)(?:\?|$)/i,
+        );
+
+      const extension =
+        extensionMatch?.[1]?.toLowerCase() ||
+        'jpg';
+
+      const fileName =
+        `temple-gallery-${Date.now()}.${extension}`;
+
+      const localUri =
+        `${FileSystem.cacheDirectory}${fileName}`;
+
+      const result =
+        await FileSystem.downloadAsync(
+          remoteUrl,
+          localUri,
+        );
+
+      return result.uri;
+    };
+
+  /*
+   * ===================================================
+   * SHARE IMAGE
+   * ===================================================
+   */
+
+  const shareSelectedImage =
+    async () => {
+      if (!selectedImage) {
+        return;
+      }
+
+      try {
+        setImageActionLoading(
+          'share',
+        );
+
+        const localUri =
+          await getImageFileUri(
+            selectedImage.image_url,
+          );
+
+        const remoteUrl =
+          getImageUrl(
+            selectedImage.image_url,
+          );
+
+        const extensionMatch =
+          remoteUrl.match(
+            /\.(jpg|jpeg|png|webp)(?:\?|$)/i,
+          );
+
+        const extension =
+          extensionMatch?.[1]?.toLowerCase() ||
+          'jpg';
+
+        const mimeType =
+          extension === 'jpg' ||
+          extension === 'jpeg'
+            ? 'image/jpeg'
+            : extension ===
+                'png'
+              ? 'image/png'
+              : 'image/webp';
+
+        const available =
+          await Sharing.isAvailableAsync();
+
+        if (!available) {
+          throw new Error(
+            'Image sharing is not available on this device.',
+          );
+        }
+
+        await Sharing.shareAsync(
+          localUri,
+          {
+            mimeType,
+
+            dialogTitle:
+              selectedImage.title ||
+              'Share Temple Image',
+          },
+        );
+      } catch (err) {
+        console.error(
+          'Gallery image share error:',
+          err,
+        );
+      } finally {
+        setImageActionLoading(
+          null,
+        );
+      }
+    };
+
+  /*
+   * ===================================================
+   * DOWNLOAD IMAGE
+   * ===================================================
+   */
+
+  const downloadSelectedImage =
+    async () => {
+      if (!selectedImage) {
+        return;
+      }
+
+      try {
+        setImageActionLoading(
+          'download',
+        );
+
+        const localUri =
+          await getImageFileUri(
+            selectedImage.image_url,
+          );
+
+        const permission =
+          await MediaLibrary.requestPermissionsAsync();
+
+        if (
+          !permission.granted
+        ) {
+          throw new Error(
+            'Photo library permission was not granted.',
+          );
+        }
+
+        await MediaLibrary.createAssetAsync(
+          localUri,
+        );
+
+        console.log(
+          'Gallery image saved successfully',
+        );
+      } catch (err) {
+        console.error(
+          'Gallery image download error:',
+          err,
+        );
+      } finally {
+        setImageActionLoading(
+          null,
+        );
+      }
+    };
+      return (
+    <SafeAreaView
+      style={styles.container}
+    >
       <StatusBar
         barStyle="dark-content"
         backgroundColor="#FFF9F0"
       />
 
       <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={
+          false
+        }
+        contentContainerStyle={
+          styles.content
+        }
       >
-        {/* ================================================= */}
+        {/* ============================================= */}
         {/* LOADING */}
-        {/* ================================================= */}
+        {/* ============================================= */}
 
         {loading ? (
-          <View style={styles.loadingContainer}>
+          <View
+            style={
+              styles.loadingContainer
+            }
+          >
             <ActivityIndicator
               size="large"
               color="#A85D25"
             />
 
-            <Text style={styles.loadingText}>
+            <Text
+              style={
+                styles.loadingText
+              }
+            >
               Loading gallery...
             </Text>
           </View>
         ) : error ? (
-          /* ================================================= */
+          /* =========================================== */
           /* ERROR */
-          /* ================================================= */
+          /* =========================================== */
 
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyTitle}>
+          <View
+            style={
+              styles.emptyContainer
+            }
+          >
+            <Text
+              style={
+                styles.emptyTitle
+              }
+            >
               Unable to load gallery
             </Text>
 
-            <Text style={styles.emptyText}>
-              Please check your internet connection and try
-              again.
+            <Text
+              style={
+                styles.emptyText
+              }
+            >
+              Please check your
+              internet connection and
+              try again.
             </Text>
 
             <Pressable
-              onPress={loadGallery}
-              style={({ pressed }) => [
+              onPress={
+                loadGallery
+              }
+              style={({
+                pressed,
+              }) => [
                 styles.retryButton,
-                pressed && styles.pressed,
+                pressed &&
+                  styles.pressed,
               ]}
             >
-              <Text style={styles.retryText}>
+              <Text
+                style={
+                  styles.retryText
+                }
+              >
                 Try Again
               </Text>
             </Pressable>
           </View>
-        ) : showAllPhotos ? (
+        ) : showAllPhotos &&
+          selectedAlbum ? (
           <>
-            {/* ================================================= */}
-            {/* VIEW ALL PHOTO GALLERY */}
-            {/* ================================================= */}
+            {/* ========================================= */}
+            {/* SELECTED ALBUM */}
+            {/* ========================================= */}
 
-            <View style={styles.galleryHeader}>
+            <View
+              style={
+                styles.galleryHeader
+              }
+            >
               <Pressable
-                onPress={() => setShowAllPhotos(false)}
-                style={({ pressed }) => [
+                onPress={
+                  closeAlbum
+                }
+                style={({
+                  pressed,
+                }) => [
                   styles.backButton,
-                  pressed && styles.pressed,
+
+                  pressed &&
+                    styles.pressed,
                 ]}
               >
-                <Text style={styles.backArrow}>‹</Text>
+                <Text
+                  style={
+                    styles.backArrow
+                  }
+                >
+                  ‹
+                </Text>
               </Pressable>
 
-              <View style={styles.galleryHeaderText}>
-                <Text style={styles.galleryEyebrow}>
-                  TEMPLE MEDIA
+              <View
+                style={
+                  styles.galleryHeaderText
+                }
+              >
+                <Text
+                  style={
+                    styles.galleryEyebrow
+                  }
+                >
+                  TEMPLE GALLERY
                 </Text>
 
-                <Text style={styles.galleryPageTitle}>
-                  Temple Gallery
+                <Text
+                  style={
+                    styles.galleryPageTitle
+                  }
+                >
+                  {
+                    selectedAlbum.name
+                  }
                 </Text>
 
-                <Text style={styles.galleryPageSubtitle}>
-                  Explore sacred moments from Hariharapura
-                </Text>
+                {selectedAlbum.description?.trim() ? (
+                  <Text
+                    style={
+                      styles.galleryPageSubtitle
+                    }
+                    numberOfLines={
+                      2
+                    }
+                  >
+                    {
+                      selectedAlbum.description
+                    }
+                  </Text>
+                ) : (
+                  <Text
+                    style={
+                      styles.galleryPageSubtitle
+                    }
+                  >
+                    Explore temple
+                    photographs
+                  </Text>
+                )}
               </View>
 
-              <View style={styles.photoCount}>
-                <Text style={styles.photoCountNumber}>
-                  {galleryItems.length}
+              <View
+                style={
+                  styles.photoCount
+                }
+              >
+                <Text
+                  style={
+                    styles.photoCountNumber
+                  }
+                >
+                  {
+                    selectedAlbum
+                      .images.length
+                  }
                 </Text>
 
-                <Text style={styles.photoCountLabel}>
+                <Text
+                  style={
+                    styles.photoCountLabel
+                  }
+                >
                   PHOTOS
                 </Text>
               </View>
             </View>
 
-            {/* ================================================= */}
-            {/* FULL GALLERY */}
-            {/* ================================================= */}
+            {/* ========================================= */}
+            {/* ALL PHOTOS IN SELECTED ALBUM */}
+            {/* ========================================= */}
 
-            <View style={styles.fullGalleryGrid}>
-              {galleryItems.map((item, index) => (
-                <View
-                  key={item.id}
-                  style={styles.fullGalleryWrapper}
-                >
-                  <Pressable
-                    onPress={() => openImage(index)}
-                    style={({ pressed }) => [
-                      styles.fullGalleryItem,
-                      pressed &&
-                        styles.galleryItemPressed,
-                    ]}
+            <View
+              style={
+                styles.fullGalleryGrid
+              }
+            >
+              {selectedAlbum.images.map(
+                (
+                  item,
+                  index,
+                ) => (
+                  <View
+                    key={
+                      item.id
+                    }
+                    style={
+                      styles.fullGalleryWrapper
+                    }
                   >
-                    <Image
-                      source={{
-                        uri: getImageUrl(item.image_url),
-                      }}
-                      style={styles.fullGalleryImage}
-                      resizeMode="cover"
-                    />
-                  </Pressable>
+                    <Pressable
+                      onPress={() =>
+                        openImage(
+                          index,
+                        )
+                      }
+                      style={({
+                        pressed,
+                      }) => [
+                        styles.fullGalleryItem,
 
-                  {/* ================================================= */}
-                  {/* SHOW TITLE / DESCRIPTION ONLY IF AVAILABLE */}
-                  {/* ================================================= */}
+                        pressed &&
+                          styles.galleryItemPressed,
+                      ]}
+                    >
+                      <Image
+                        source={{
+                          uri: getImageUrl(
+                            item.image_url,
+                          ),
+                        }}
+                        style={
+                          styles.fullGalleryImage
+                        }
+                        resizeMode="cover"
+                      />
+                    </Pressable>
 
-                  {(item.title?.trim() ||
-                    item.description?.trim()) && (
-                    <View style={styles.galleryTextContainer}>
-                      {item.title?.trim() ? (
-                        <Text
-                          style={styles.fullGalleryTitle}
-                        >
-                          {item.title}
-                        </Text>
-                      ) : null}
+                    {(item.title?.trim() ||
+                      item.description?.trim()) && (
+                      <View
+                        style={
+                          styles.galleryTextContainer
+                        }
+                      >
+                        {item.title?.trim() ? (
+                          <Text
+                            style={
+                              styles.fullGalleryTitle
+                            }
+                          >
+                            {
+                              item.title
+                            }
+                          </Text>
+                        ) : null}
 
-                      {item.description?.trim() ? (
-                        <Text
-                          style={
-                            styles.fullGalleryDescription
-                          }
-                        >
-                          {item.description}
-                        </Text>
-                      ) : null}
-                    </View>
-                  )}
-                </View>
-              ))}
+                        {item.description?.trim() ? (
+                          <Text
+                            style={
+                              styles.fullGalleryDescription
+                            }
+                          >
+                            {
+                              item.description
+                            }
+                          </Text>
+                        ) : null}
+                      </View>
+                    )}
+                  </View>
+                ),
+              )}
             </View>
 
-            <View style={styles.galleryBottomSpace} />
+            <View
+              style={
+                styles.galleryBottomSpace
+              }
+            />
           </>
         ) : (
           <>
-            {/* ================================================= */}
+            {/* ========================================= */}
             {/* MAIN GALLERY PAGE */}
-            {/* ================================================= */}
+            {/* ========================================= */}
 
-            <View style={styles.header}>
-              <View style={styles.headerText}>
-                <Text style={styles.eyebrow}>
+            <View
+              style={styles.header}
+            >
+              <View
+                style={
+                  styles.headerText
+                }
+              >
+                <Text
+                  style={
+                    styles.eyebrow
+                  }
+                >
                   TEMPLE MEDIA
                 </Text>
 
-                <Text style={styles.title}>
+                <Text
+                  style={
+                    styles.title
+                  }
+                >
                   Gallery
                 </Text>
 
-                <Text style={styles.subtitle}>
-                  Explore temple photos, videos and devotional
+                <Text
+                  style={
+                    styles.subtitle
+                  }
+                >
+                  Explore temple photos,
+                  videos and devotional
                   stotras
                 </Text>
               </View>
             </View>
 
-            {/* ================================================= */}
-            {/* PHOTOS SECTION */}
-            {/* ================================================= */}
+            {/* ========================================= */}
+            {/* DYNAMIC ADMIN-CREATED HEADINGS */}
+            {/* ========================================= */}
 
-            <View style={styles.sectionHeader}>
-              <View>
-                <Text style={styles.sectionTitle}>
-                  Photos
-                </Text>
-
-                <Text style={styles.sectionCaption}>
-                  Moments from the temple
-                </Text>
-              </View>
-
-              {galleryItems.length > 0 && (
-                <Pressable
-                  onPress={() => setShowAllPhotos(true)}
-                  style={({ pressed }) => [
-                    styles.viewAllButton,
-                    pressed && styles.pressed,
-                  ]}
+            {galleryAlbums.length ===
+            0 ? (
+              <View
+                style={
+                  styles.noPhotosCard
+                }
+              >
+                <Text
+                  style={
+                    styles.noPhotosTitle
+                  }
                 >
-                  <Text style={styles.viewAllText}>
-                    View All
-                  </Text>
-
-                  <Text style={styles.viewAllArrow}>
-                    ›
-                  </Text>
-                </Pressable>
-              )}
-            </View>
-
-            {/* ================================================= */}
-            {/* NO PHOTOS */}
-            {/* ================================================= */}
-
-            {galleryItems.length === 0 ? (
-              <View style={styles.noPhotosCard}>
-                <Text style={styles.noPhotosTitle}>
                   No photos available
                 </Text>
 
-                <Text style={styles.noPhotosText}>
-                  Temple gallery photos will appear here when
-                  they are added by the administrator.
+                <Text
+                  style={
+                    styles.noPhotosText
+                  }
+                >
+                  Temple gallery photos
+                  will appear here when
+                  they are added by the
+                  administrator.
                 </Text>
               </View>
             ) : (
-              <>
-                {/* ================================================= */}
-                {/* FEATURED PHOTO */}
-                {/* ================================================= */}
+              <View
+                style={
+                  styles.albumSectionsContainer
+                }
+              >
+                {galleryAlbums.map(
+                  (album) => {
+                    /*
+                     * Exactly first 3
+                     * photos on main page.
+                     */
+                    const previewPhotos =
+                      album.images.slice(
+                        0,
+                        3,
+                      );
 
-                <Pressable
-                  onPress={() => {
-                    setShowAllPhotos(true);
-                  }}
-                  style={({ pressed }) => [
-                    styles.previewHero,
-                    pressed &&
-                      styles.galleryItemPressed,
-                  ]}
-                >
-                  <Image
-                    source={{
-                      uri: getImageUrl(
-                        previewImages[0].image_url,
-                      ),
-                    }}
-                    style={styles.previewHeroImage}
-                    resizeMode="cover"
-                  />
-
-                  <View style={styles.previewOverlay} />
-
-                  <View style={styles.previewContent}>
-                    <View style={styles.previewBadge}>
-                      <Text
-                        style={styles.previewBadgeText}
+                    return (
+                      <View
+                        key={
+                          album.id
+                        }
+                        style={
+                          styles.albumSection
+                        }
                       >
-                        TEMPLE GALLERY
-                      </Text>
-                    </View>
+                        {/* ============================= */}
+                        {/* BLACK BOLD HEADING */}
+                        {/* ============================= */}
 
-                    <Text style={styles.previewTitle}>
-                      {previewImages[0].title ||
-                        'Temple Gallery'}
-                    </Text>
-
-                    <Text style={styles.previewSubtitle}>
-                      Tap to explore all{' '}
-                      {galleryItems.length} photographs
-                    </Text>
-                  </View>
-
-                  <View style={styles.previewCount}>
-                    <Text
-                      style={styles.previewCountNumber}
-                    >
-                      {galleryItems.length}
-                    </Text>
-
-                    <Text
-                      style={styles.previewCountLabel}
-                    >
-                      PHOTOS
-                    </Text>
-                  </View>
-                </Pressable>
-
-                {/* ================================================= */}
-                {/* SMALL PHOTO PREVIEW GRID */}
-                {/* ================================================= */}
-
-                {previewImages.length > 1 && (
-                  <View style={styles.smallGrid}>
-                    {previewImages
-                      .slice(1, 5)
-                      .map((item, index) => (
-                        <Pressable
-                          key={item.id}
-                          onPress={() => {
-                            setShowAllPhotos(true);
-
-                            setTimeout(() => {
-                              setSelectedImageIndex(
-                                index + 1,
-                              );
-                            }, 100);
-                          }}
-                          style={({ pressed }) => [
-                            styles.smallPhotoCard,
-                            pressed &&
-                              styles.galleryItemPressed,
-                          ]}
+                        <View
+                          style={
+                            styles.albumHeader
+                          }
                         >
-                          <Image
-                            source={{
-                              uri: getImageUrl(
-                                item.image_url,
-                              ),
-                            }}
-                            style={styles.smallPhoto}
-                            resizeMode="cover"
-                          />
-
                           <View
                             style={
-                              styles.smallPhotoOverlay
+                              styles.albumHeaderContent
                             }
-                          />
-
-                          <Text
-                            style={styles.smallPhotoTitle}
-                            numberOfLines={2}
                           >
-                            {item.title ||
-                              'Temple Photo'}
+                            <Text
+                              style={
+                                styles.albumTitle
+                              }
+                            >
+                              {
+                                album.name
+                              }
+                            </Text>
+
+                            {album.description?.trim() ? (
+                              <Text
+                                style={
+                                  styles.albumDescription
+                                }
+                                numberOfLines={
+                                  2
+                                }
+                              >
+                                {
+                                  album.description
+                                }
+                              </Text>
+                            ) : null}
+                          </View>
+
+                          <Pressable
+                            onPress={() =>
+                              openAlbum(
+                                album,
+                              )
+                            }
+                            style={({
+                              pressed,
+                            }) => [
+                              styles.viewAllButton,
+
+                              pressed &&
+                                styles.pressed,
+                            ]}
+                          >
+                            <Text
+                              style={
+                                styles.viewAllText
+                              }
+                            >
+                              View All
+                            </Text>
+
+                            <Text
+                              style={
+                                styles.viewAllArrow
+                              }
+                            >
+                              ›
+                            </Text>
+                          </Pressable>
+                        </View>
+
+                        {/* ============================= */}
+                        {/* LINE UNDER HEADING */}
+                        {/* ============================= */}
+
+                        <View
+                          style={
+                            styles.albumDivider
+                          }
+                        />
+
+                        {/* ============================= */}
+                        {/* FIRST THREE PHOTOS */}
+                        {/* ============================= */}
+
+                        <View
+                          style={
+                            styles.albumPreviewGrid
+                          }
+                        >
+                          {previewPhotos.map(
+                            (
+                              item,
+                              index,
+                            ) => (
+                              <Pressable
+                                key={
+                                  item.id
+                                }
+                                onPress={() =>
+                                  openImage(
+                                    index,
+                                    album,
+                                  )
+                                }
+                                style={({
+                                  pressed,
+                                }) => [
+                                  styles.albumPreviewCard,
+
+                                  pressed &&
+                                    styles.galleryItemPressed,
+                                ]}
+                              >
+                                <Image
+                                  source={{
+                                    uri: getImageUrl(
+                                      item.image_url,
+                                    ),
+                                  }}
+                                  style={
+                                    styles.albumPreviewImage
+                                  }
+                                  resizeMode="cover"
+                                />
+                              </Pressable>
+                            ),
+                          )}
+                        </View>
+
+                        {/* ============================= */}
+                        {/* COUNT */}
+                        {/* ============================= */}
+
+                        <View
+                          style={
+                            styles.albumFooter
+                          }
+                        >
+                          <Text
+                            style={
+                              styles.albumPhotoCount
+                            }
+                          >
+                            {
+                              album
+                                .images
+                                .length
+                            }{' '}
+                            {album
+                              .images
+                              .length ===
+                            1
+                              ? 'photo'
+                              : 'photos'}
                           </Text>
-                        </Pressable>
-                      ))}
-                  </View>
+
+                          {album
+                            .images
+                            .length >
+                            3 && (
+                            <Pressable
+                              onPress={() =>
+                                openAlbum(
+                                  album,
+                                )
+                              }
+                            >
+                              <Text
+                                style={
+                                  styles.albumMorePhotos
+                                }
+                              >
+                                +
+                                {album
+                                  .images
+                                  .length -
+                                  3}{' '}
+                                more
+                              </Text>
+                            </Pressable>
+                          )}
+                        </View>
+                      </View>
+                    );
+                  },
                 )}
-              </>
+              </View>
             )}
 
-            {/* ================================================= */}
+            {/* ========================================= */}
             {/* VIDEOS */}
-            {/* ================================================= */}
+            {/* ========================================= */}
 
-            <View style={styles.sectionHeaderStandalone}>
+            <View
+              style={
+                styles.sectionHeaderStandalone
+              }
+            >
               <View>
-                <Text style={styles.sectionTitle}>
+                <Text
+                  style={
+                    styles.sectionTitle
+                  }
+                >
                   Videos
                 </Text>
 
-                <Text style={styles.sectionCaption}>
+                <Text
+                  style={
+                    styles.sectionCaption
+                  }
+                >
                   Watch temple moments
                 </Text>
               </View>
             </View>
 
             <Pressable
-              style={({ pressed }) => [
+              style={({
+                pressed,
+              }) => [
                 styles.videoCard,
-                pressed && styles.cardPressed,
+
+                pressed &&
+                  styles.cardPressed,
               ]}
             >
-              <View style={styles.videoThumbnail}>
-                <View style={styles.playButton}>
-                  <Text style={styles.playIcon}>
+              <View
+                style={
+                  styles.videoThumbnail
+                }
+              >
+                <View
+                  style={
+                    styles.playButton
+                  }
+                >
+                  <Text
+                    style={
+                      styles.playIcon
+                    }
+                  >
                     ▶
                   </Text>
                 </View>
 
-                <View style={styles.videoDuration}>
+                <View
+                  style={
+                    styles.videoDuration
+                  }
+                >
                   <Text
-                    style={styles.videoDurationText}
+                    style={
+                      styles.videoDurationText
+                    }
                   >
                     04:32
                   </Text>
                 </View>
               </View>
 
-              <View style={styles.videoContent}>
-                <Text style={styles.videoTitle}>
+              <View
+                style={
+                  styles.videoContent
+                }
+              >
+                <Text
+                  style={
+                    styles.videoTitle
+                  }
+                >
                   Temple Darshan
                 </Text>
 
-                <Text style={styles.videoDescription}>
-                  Experience the divine atmosphere of the
+                <Text
+                  style={
+                    styles.videoDescription
+                  }
+                >
+                  Experience the divine
+                  atmosphere of the
                   temple.
                 </Text>
 
-                <View style={styles.watchRow}>
-                  <Text style={styles.watchText}>
+                <View
+                  style={
+                    styles.watchRow
+                  }
+                >
+                  <Text
+                    style={
+                      styles.watchText
+                    }
+                  >
                     Watch Video
                   </Text>
 
-                  <Text style={styles.watchArrow}>
+                  <Text
+                    style={
+                      styles.watchArrow
+                    }
+                  >
                     ›
                   </Text>
                 </View>
               </View>
             </Pressable>
 
-            {/* ================================================= */}
+            {/* ========================================= */}
             {/* STOTRAS */}
-            {/* ================================================= */}
+            {/* ========================================= */}
 
-            <View style={styles.sectionHeaderStandalone}>
+            <View
+              style={
+                styles.sectionHeaderStandalone
+              }
+            >
               <View>
-                <Text style={styles.sectionTitle}>
+                <Text
+                  style={
+                    styles.sectionTitle
+                  }
+                >
                   Stotras
                 </Text>
 
-                <Text style={styles.sectionCaption}>
-                  Sacred devotional readings
+                <Text
+                  style={
+                    styles.sectionCaption
+                  }
+                >
+                  Sacred devotional
+                  readings
                 </Text>
               </View>
             </View>
 
-            <View style={styles.stotraCard}>
+            <View
+              style={
+                styles.stotraCard
+              }
+            >
               <Pressable
-                style={({ pressed }) => [
+                style={({
+                  pressed,
+                }) => [
                   styles.stotraRow,
                   styles.stotraBorder,
-                  pressed && styles.stotraPressed,
+
+                  pressed &&
+                    styles.stotraPressed,
                 ]}
               >
-                <View style={styles.stotraIcon}>
-                  <Text style={styles.stotraEmoji}>
+                <View
+                  style={
+                    styles.stotraIcon
+                  }
+                >
+                  <Text
+                    style={
+                      styles.stotraEmoji
+                    }
+                  >
                     ॐ
                   </Text>
                 </View>
 
-                <View style={styles.stotraContent}>
-                  <Text style={styles.stotraTitle}>
+                <View
+                  style={
+                    styles.stotraContent
+                  }
+                >
+                  <Text
+                    style={
+                      styles.stotraTitle
+                    }
+                  >
                     Sri Narasimha Stotra
                   </Text>
 
                   <Text
-                    style={styles.stotraDescription}
+                    style={
+                      styles.stotraDescription
+                    }
                   >
-                    Read the sacred devotional stotra.
+                    Read the sacred
+                    devotional stotra.
                   </Text>
 
-                  <View style={styles.readRow}>
-                    <Text style={styles.readText}>
+                  <View
+                    style={
+                      styles.readRow
+                    }
+                  >
+                    <Text
+                      style={
+                        styles.readText
+                      }
+                    >
                       Read Stotra
                     </Text>
 
-                    <Text style={styles.readArrow}>
+                    <Text
+                      style={
+                        styles.readArrow
+                      }
+                    >
                       ›
                     </Text>
                   </View>
@@ -719,35 +1470,70 @@ export default function GalleryScreen() {
               </Pressable>
 
               <Pressable
-                style={({ pressed }) => [
+                style={({
+                  pressed,
+                }) => [
                   styles.stotraRow,
                   styles.stotraBorder,
-                  pressed && styles.stotraPressed,
+
+                  pressed &&
+                    styles.stotraPressed,
                 ]}
               >
-                <View style={styles.stotraIcon}>
-                  <Text style={styles.stotraEmoji}>
+                <View
+                  style={
+                    styles.stotraIcon
+                  }
+                >
+                  <Text
+                    style={
+                      styles.stotraEmoji
+                    }
+                  >
                     ॐ
                   </Text>
                 </View>
 
-                <View style={styles.stotraContent}>
-                  <Text style={styles.stotraTitle}>
+                <View
+                  style={
+                    styles.stotraContent
+                  }
+                >
+                  <Text
+                    style={
+                      styles.stotraTitle
+                    }
+                  >
                     Guru Stotra
                   </Text>
 
                   <Text
-                    style={styles.stotraDescription}
+                    style={
+                      styles.stotraDescription
+                    }
                   >
-                    Devotional verses dedicated to the Guru.
+                    Devotional verses
+                    dedicated to the Guru.
                   </Text>
 
-                  <View style={styles.readRow}>
-                    <Text style={styles.readText}>
+                  <View
+                    style={
+                      styles.readRow
+                    }
+                  >
+                    <Text
+                      style={
+                        styles.readText
+                      }
+                    >
                       Read Stotra
                     </Text>
 
-                    <Text style={styles.readArrow}>
+                    <Text
+                      style={
+                        styles.readArrow
+                      }
+                    >
                       ›
                     </Text>
                   </View>
@@ -755,35 +1541,69 @@ export default function GalleryScreen() {
               </Pressable>
 
               <Pressable
-                style={({ pressed }) => [
+                style={({
+                  pressed,
+                }) => [
                   styles.stotraRow,
-                  pressed && styles.stotraPressed,
+
+                  pressed &&
+                    styles.stotraPressed,
                 ]}
               >
-                <View style={styles.stotraIcon}>
-                  <Text style={styles.stotraEmoji}>
+                <View
+                  style={
+                    styles.stotraIcon
+                  }
+                >
+                  <Text
+                    style={
+                      styles.stotraEmoji
+                    }
+                  >
                     ॐ
                   </Text>
                 </View>
 
-                <View style={styles.stotraContent}>
-                  <Text style={styles.stotraTitle}>
+                <View
+                  style={
+                    styles.stotraContent
+                  }
+                >
+                  <Text
+                    style={
+                      styles.stotraTitle
+                    }
+                  >
                     Sharada Stotra
                   </Text>
 
                   <Text
-                    style={styles.stotraDescription}
+                    style={
+                      styles.stotraDescription
+                    }
                   >
-                    Sacred verses dedicated to Goddess
-                    Sharada.
+                    Sacred verses dedicated
+                    to Goddess Sharada.
                   </Text>
 
-                  <View style={styles.readRow}>
-                    <Text style={styles.readText}>
+                  <View
+                    style={
+                      styles.readRow
+                    }
+                  >
+                    <Text
+                      style={
+                        styles.readText
+                      }
+                    >
                       Read Stotra
                     </Text>
 
-                    <Text style={styles.readArrow}>
+                    <Text
+                      style={
+                        styles.readArrow
+                      }
+                    >
                       ›
                     </Text>
                   </View>
@@ -791,29 +1611,59 @@ export default function GalleryScreen() {
               </Pressable>
             </View>
 
-            {/* ================================================= */}
+            {/* ========================================= */}
             {/* AUDIO STOTRAS */}
-            {/* ================================================= */}
+            {/* ========================================= */}
 
-            <View style={styles.infoCard}>
-              <View style={styles.infoIconContainer}>
-                <Text style={styles.infoIcon}>
+            <View
+              style={
+                styles.infoCard
+              }
+            >
+              <View
+                style={
+                  styles.infoIconContainer
+                }
+              >
+                <Text
+                  style={
+                    styles.infoIcon
+                  }
+                >
                   ♪
                 </Text>
               </View>
 
-              <View style={styles.infoContent}>
-                <Text style={styles.infoTitle}>
+              <View
+                style={
+                  styles.infoContent
+                }
+              >
+                <Text
+                  style={
+                    styles.infoTitle
+                  }
+                >
                   Audio Stotras
                 </Text>
 
-                <Text style={styles.infoText}>
-                  Devotional audio playback will be connected
-                  when temple media content is available.
+                <Text
+                  style={
+                    styles.infoText
+                  }
+                >
+                  Devotional audio playback
+                  will be connected when
+                  temple media content is
+                  available.
                 </Text>
               </View>
 
-              <Text style={styles.infoArrow}>
+              <Text
+                style={
+                  styles.infoArrow
+                }
+              >
                 ›
               </Text>
             </View>
@@ -821,18 +1671,26 @@ export default function GalleryScreen() {
         )}
       </ScrollView>
 
-      {/* ===================================================== */}
-      {/* FULL SCREEN IMAGE VIEWER */}
-      {/* ===================================================== */}
+      {/* ============================================= */}
+      {/* FULL-SCREEN IMAGE VIEWER */}
+      {/* ============================================= */}
 
       <Modal
-        visible={selectedImage !== null}
+        visible={
+          selectedImage !== null
+        }
         transparent
         animationType="fade"
-        onRequestClose={closeImage}
+        onRequestClose={
+          closeImage
+        }
         statusBarTranslucent
       >
-        <View style={styles.modalContainer}>
+        <View
+          style={
+            styles.modalContainer
+          }
+        >
           <StatusBar
             barStyle="light-content"
             backgroundColor="#080706"
@@ -840,25 +1698,49 @@ export default function GalleryScreen() {
 
           {/* TOP BAR */}
 
-          <View style={styles.modalTopBar}>
+          <View
+            style={
+              styles.modalTopBar
+            }
+          >
             <Pressable
-              onPress={closeImage}
-              style={({ pressed }) => [
+              onPress={
+                closeImage
+              }
+              style={({
+                pressed,
+              }) => [
                 styles.closeButton,
-                pressed && styles.modalPressed,
+
+                pressed &&
+                  styles.modalPressed,
               ]}
             >
-              <Text style={styles.closeButtonText}>
+              <Text
+                style={
+                  styles.closeButtonText
+                }
+              >
                 ×
               </Text>
             </Pressable>
 
-            <View style={styles.modalCounter}>
-              <Text style={styles.modalCounterText}>
-                {selectedImageIndex !== null
-                  ? selectedImageIndex + 1
+            <View
+              style={
+                styles.modalCounter
+              }
+            >
+              <Text
+                style={
+                  styles.modalCounterText
+                }
+              >
+                {selectedImageIndex !==
+                null
+                  ? selectedImageIndex +
+                    1
                   : 1}{' '}
-                / {galleryItems.length}
+                / {viewerImages.length}
               </Text>
             </View>
           </View>
@@ -866,83 +1748,165 @@ export default function GalleryScreen() {
           {/* IMAGE */}
 
           {selectedImage && (
-            <View style={styles.modalImageContainer}>
+            <View
+              style={
+                styles.modalImageContainer
+              }
+            >
               <Image
                 source={{
                   uri: getImageUrl(
                     selectedImage.image_url,
                   ),
                 }}
-                style={styles.modalImage}
+                style={
+                  styles.modalImage
+                }
                 resizeMode="contain"
               />
             </View>
           )}
 
-          {/* PREVIOUS BUTTON */}
+          {/* PREVIOUS */}
 
-          {galleryItems.length > 1 && (
+          {viewerImages.length >
+            1 && (
             <Pressable
-              onPress={previousImage}
-              style={({ pressed }) => [
+              onPress={
+                previousImage
+              }
+              style={({
+                pressed,
+              }) => [
                 styles.navigationButton,
                 styles.previousButton,
-                pressed && styles.modalPressed,
+
+                pressed &&
+                  styles.modalPressed,
               ]}
             >
-              <Text style={styles.navigationText}>
+              <Text
+                style={
+                  styles.navigationText
+                }
+              >
                 ‹
               </Text>
             </Pressable>
           )}
 
-          {/* NEXT BUTTON */}
+          {/* NEXT */}
 
-          {galleryItems.length > 1 && (
+          {viewerImages.length >
+            1 && (
             <Pressable
-              onPress={nextImage}
-              style={({ pressed }) => [
+              onPress={
+                nextImage
+              }
+              style={({
+                pressed,
+              }) => [
                 styles.navigationButton,
                 styles.nextButton,
-                pressed && styles.modalPressed,
+
+                pressed &&
+                  styles.modalPressed,
               ]}
             >
-              <Text style={styles.navigationText}>
+              <Text
+                style={
+                  styles.navigationText
+                }
+              >
                 ›
               </Text>
             </Pressable>
           )}
 
-          {/* SHARE / DOWNLOAD ACTIONS */}
+          {/* SHARE / DOWNLOAD */}
 
-          <View style={styles.imageActionsBar}>
+          <View
+            style={
+              styles.imageActionsBar
+            }
+          >
             <Pressable
-              onPress={shareSelectedImage}
-              disabled={imageActionLoading !== null}
-              style={({ pressed }) => [
+              onPress={
+                shareSelectedImage
+              }
+              disabled={
+                imageActionLoading !==
+                null
+              }
+              style={({
+                pressed,
+              }) => [
                 styles.imageActionButton,
-                pressed && styles.modalPressed,
-                imageActionLoading !== null && styles.imageActionDisabled,
+
+                pressed &&
+                  styles.modalPressed,
+
+                imageActionLoading !==
+                  null &&
+                  styles.imageActionDisabled,
               ]}
             >
-              <Text style={styles.imageActionIcon}>↗</Text>
-              <Text style={styles.imageActionText}>
-                {imageActionLoading === 'share' ? 'Sharing...' : 'Share'}
+              <Text
+                style={
+                  styles.imageActionIcon
+                }
+              >
+                ↗
+              </Text>
+
+              <Text
+                style={
+                  styles.imageActionText
+                }
+              >
+                {imageActionLoading ===
+                'share'
+                  ? 'Sharing...'
+                  : 'Share'}
               </Text>
             </Pressable>
 
             <Pressable
-              onPress={downloadSelectedImage}
-              disabled={imageActionLoading !== null}
-              style={({ pressed }) => [
+              onPress={
+                downloadSelectedImage
+              }
+              disabled={
+                imageActionLoading !==
+                null
+              }
+              style={({
+                pressed,
+              }) => [
                 styles.imageActionButton,
-                pressed && styles.modalPressed,
-                imageActionLoading !== null && styles.imageActionDisabled,
+
+                pressed &&
+                  styles.modalPressed,
+
+                imageActionLoading !==
+                  null &&
+                  styles.imageActionDisabled,
               ]}
             >
-              <Text style={styles.imageActionIcon}>↓</Text>
-              <Text style={styles.imageActionText}>
-                {imageActionLoading === 'download'
+              <Text
+                style={
+                  styles.imageActionIcon
+                }
+              >
+                ↓
+              </Text>
+
+              <Text
+                style={
+                  styles.imageActionText
+                }
+              >
+                {imageActionLoading ===
+                'download'
                   ? 'Saving...'
                   : 'Download'}
               </Text>
@@ -953,7 +1917,6 @@ export default function GalleryScreen() {
     </SafeAreaView>
   );
 }
-
 const styles = StyleSheet.create({
   /* ================================================= */
   /* CONTAINER */
@@ -972,17 +1935,29 @@ const styles = StyleSheet.create({
 
   pressed: {
     opacity: 0.72,
-    transform: [{ scale: 0.98 }],
+    transform: [
+      {
+        scale: 0.98,
+      },
+    ],
   },
 
   galleryItemPressed: {
     opacity: 0.82,
-    transform: [{ scale: 0.985 }],
+    transform: [
+      {
+        scale: 0.985,
+      },
+    ],
   },
 
   cardPressed: {
     opacity: 0.75,
-    transform: [{ scale: 0.99 }],
+    transform: [
+      {
+        scale: 0.99,
+      },
+    ],
   },
 
   /* ================================================= */
@@ -1095,15 +2070,8 @@ const styles = StyleSheet.create({
   },
 
   /* ================================================= */
-  /* SECTION HEADER */
+  /* GENERIC SECTION HEADER */
   /* ================================================= */
-
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 14,
-  },
 
   sectionHeaderStandalone: {
     marginTop: 28,
@@ -1122,6 +2090,10 @@ const styles = StyleSheet.create({
     color: '#8A7C70',
     marginTop: 3,
   },
+
+  /* ================================================= */
+  /* VIEW ALL BUTTON */
+  /* ================================================= */
 
   viewAllButton: {
     flexDirection: 'row',
@@ -1146,137 +2118,120 @@ const styles = StyleSheet.create({
   },
 
   /* ================================================= */
-  /* MAIN FEATURED IMAGE */
+  /* DYNAMIC ALBUM SECTIONS */
   /* ================================================= */
 
-  previewHero: {
-    height: 245,
-    borderRadius: 24,
-    overflow: 'hidden',
-    backgroundColor: '#E6D1BB',
-    marginBottom: 13,
-  },
-
-  previewHeroImage: {
+  albumSectionsContainer: {
     width: '100%',
-    height: '100%',
   },
 
-  previewOverlay: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
-    backgroundColor: 'rgba(26, 16, 10, 0.36)',
+  albumSection: {
+    width: '100%',
+    marginBottom: 30,
   },
 
-  previewContent: {
-    position: 'absolute',
-    left: 18,
-    bottom: 19,
-    right: 75,
-  },
-
-  previewBadge: {
-    alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255,255,255,0.94)',
-    paddingHorizontal: 9,
-    paddingVertical: 5,
-    borderRadius: 12,
-    marginBottom: 8,
-  },
-
-  previewBadgeText: {
-    fontSize: 8,
-    fontWeight: '900',
-    letterSpacing: 1,
-    color: '#9C5725',
-  },
-
-  previewTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#FFFFFF',
-  },
-
-  previewSubtitle: {
-    fontSize: 11,
-    color: 'rgba(255,255,255,0.88)',
-    marginTop: 3,
-  },
-
-  previewCount: {
-    position: 'absolute',
-    right: 15,
-    top: 15,
-    width: 51,
-    height: 51,
-    borderRadius: 17,
-    backgroundColor: 'rgba(58,34,20,0.78)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  previewCountNumber: {
-    color: '#FFFFFF',
-    fontSize: 17,
-    fontWeight: '800',
-  },
-
-  previewCountLabel: {
-    color: 'rgba(255,255,255,0.72)',
-    fontSize: 7,
-    fontWeight: '800',
-    letterSpacing: 0.7,
-  },
-
-  /* ================================================= */
-  /* SMALL PREVIEW GRID */
-  /* ================================================= */
-
-  smallGrid: {
+  /*
+   * Temple Entrance                  View All
+   */
+  albumHeader: {
+    width: '100%',
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    alignItems: 'center',
     justifyContent: 'space-between',
   },
 
-  smallPhotoCard: {
-    width: '48.5%',
-    height: 130,
-    borderRadius: 17,
-    overflow: 'hidden',
-    marginBottom: 10,
-    backgroundColor: '#E8D7C5',
+  albumHeaderContent: {
+    flex: 1,
+    paddingRight: 12,
   },
 
-  smallPhoto: {
+  /*
+   * Requested:
+   * Heading should be black + bold.
+   */
+  albumTitle: {
+    fontSize: 20,
+    lineHeight: 26,
+    fontWeight: '900',
+    color: '#171717',
+    letterSpacing: -0.25,
+  },
+
+  albumDescription: {
+    fontSize: 11,
+    lineHeight: 16,
+    color: '#81756B',
+    marginTop: 3,
+  },
+
+  /*
+   * Divider below heading.
+   */
+  albumDivider: {
+    width: '100%',
+    height: 1,
+    backgroundColor: '#E8DDD3',
+    marginTop: 11,
+    marginBottom: 13,
+  },
+
+  /*
+   * Three images horizontally.
+   */
+  albumPreviewGrid: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    gap: 8,
+  },
+
+  albumPreviewCard: {
+    width: '31.7%',
+    aspectRatio: 1,
+    borderRadius: 14,
+    overflow: 'hidden',
+    backgroundColor: '#E8D7C5',
+
+    shadowColor: '#4A2C18',
+    shadowOpacity: 0.07,
+    shadowRadius: 5,
+
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+
+    elevation: 2,
+  },
+
+  albumPreviewImage: {
     width: '100%',
     height: '100%',
   },
 
-  smallPhotoOverlay: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
-    backgroundColor: 'rgba(30,18,10,0.20)',
+  albumFooter: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 8,
   },
 
-  smallPhotoTitle: {
-    position: 'absolute',
-    left: 11,
-    right: 8,
-    bottom: 10,
-    fontSize: 11,
-    lineHeight: 15,
+  albumPhotoCount: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#8A7C70',
+  },
+
+  albumMorePhotos: {
+    fontSize: 10,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: '#A85D25',
   },
 
   /* ================================================= */
-  /* FULL GALLERY HEADER */
+  /* SELECTED ALBUM HEADER */
   /* ================================================= */
 
   galleryHeader: {
@@ -1297,6 +2252,7 @@ const styles = StyleSheet.create({
     shadowColor: '#4A2C18',
     shadowOpacity: 0.08,
     shadowRadius: 10,
+
     shadowOffset: {
       width: 0,
       height: 4,
@@ -1328,7 +2284,7 @@ const styles = StyleSheet.create({
     fontSize: 23,
     lineHeight: 28,
     fontWeight: '800',
-    color: '#432717',
+    color: '#171717',
   },
 
   galleryPageSubtitle: {
@@ -1362,7 +2318,7 @@ const styles = StyleSheet.create({
   },
 
   /* ================================================= */
-  /* FULL GALLERY */
+  /* FULL ALBUM GALLERY */
   /* ================================================= */
 
   fullGalleryGrid: {
@@ -1386,6 +2342,7 @@ const styles = StyleSheet.create({
     shadowColor: '#4A2C18',
     shadowOpacity: 0.08,
     shadowRadius: 8,
+
     shadowOffset: {
       width: 0,
       height: 3,
@@ -1436,6 +2393,7 @@ const styles = StyleSheet.create({
     shadowColor: '#4A2C18',
     shadowOpacity: 0.07,
     shadowRadius: 10,
+
     shadowOffset: {
       width: 0,
       height: 4,
@@ -1535,6 +2493,7 @@ const styles = StyleSheet.create({
     shadowColor: '#4A2C18',
     shadowOpacity: 0.06,
     shadowRadius: 10,
+
     shadowOffset: {
       width: 0,
       height: 4,
@@ -1799,6 +2758,10 @@ const styles = StyleSheet.create({
 
   modalPressed: {
     opacity: 0.55,
-    transform: [{ scale: 0.94 }],
+    transform: [
+      {
+        scale: 0.94,
+      },
+    ],
   },
 });

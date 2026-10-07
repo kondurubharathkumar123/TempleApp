@@ -1,6 +1,7 @@
 export const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ||
-  'https://templeapp-s96e.onrender.com/api';
+  //'http://192.168.0.107:5000/api';
+ 'https://templeapp-s96e.onrender.com/api';
 
 export function getAdminToken() {
   return localStorage.getItem('temple_admin_token');

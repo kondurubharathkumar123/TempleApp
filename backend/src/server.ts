@@ -4,6 +4,7 @@ import express from 'express';
 import { checkRoomAvailability } from './controllers/roomBookingController';
 import { pool } from './db';
 import activityRoutes from './routes/activityRoutes';
+import activitySectionRoutes from './routes/activitySectionRoutes';
 import adminRoutes from './routes/adminRoutes';
 import adminActivityRoutes from './routes/adminActivityRoutes';
 import adminContentRoutes from './routes/adminContentRoutes';
@@ -21,6 +22,13 @@ import adminRoomBookingRoutes from './routes/adminRoomBookingRoutes';
 import adminDarshanRoutes from './routes/adminDarshanRoutes';
 import darshanRoutes from './routes/darshanRoutes';
 import darshanVideosRoutes from './routes/darshanVideos';
+import notificationRoutes from './routes/notificationRoutes';
+import announcementRoutes from './routes/announcementRoutes';
+import adminGalleryAlbumRoutes from './routes/adminGalleryAlbumRoutes';
+
+import {
+  processScheduledNotifications,
+} from './services/notificationScheduler';
 dotenv.config();
 
 const app = express();
@@ -47,14 +55,33 @@ app.use(
 
 app.use('/api/sevas', sevaRoutes);
 app.use('/api/activities', activityRoutes);
+app.use(
+  '/api/activity-sections',
+  activitySectionRoutes
+);
 app.use('/api/events', eventRoutes);
+
+// Public gallery - existing functionality
 app.use('/api/gallery', galleryRoutes);
+
+// Admin gallery album/heading management
+app.use(
+  '/api/admin/gallery-albums',
+  adminGalleryAlbumRoutes
+);
+
 app.use('/api/publications', publicationRoutes);
 app.use('/api/rooms', roomRoutes);
 app.use('/api/room-bookings', roomBookingRoutes);
 app.use('/api/buildings', buildingRoutes);
 app.use('/api/service-bookings', serviceBookingRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api/notifications', notificationRoutes);
+
+app.use(
+  '/api/announcements',
+  announcementRoutes
+);
 
 app.get(
   '/api/rooms/:roomId/availability',
@@ -128,3 +155,19 @@ app.listen(PORT, '0.0.0.0', () => {
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Temple App Backend running on port ${PORT}`);
 });
+// ========================================
+// SCHEDULED NOTIFICATION PROCESSOR
+// ========================================
+
+setInterval(
+  () => {
+    processScheduledNotifications()
+      .catch((error) => {
+        console.error(
+          'Notification scheduler error:',
+          error
+        );
+      });
+  },
+  30 * 1000
+);

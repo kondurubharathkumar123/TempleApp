@@ -10,16 +10,8 @@ import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const places = [
-  {
-    icon: '🏨',
-    title: 'Hotels & Rooms',
-    description: 'Find nearby accommodation for your temple visit.',
-  },
-  {
-    icon: '🍽️',
-    title: 'Restaurants',
-    description: 'Explore nearby restaurants and food options.',
-  },
+  
+ 
   {
     icon: '🏥',
     title: 'Hospitals',

@@ -11,6 +11,7 @@ import RoomBookings from './pages/RoomBookings';
 import Rooms from './pages/Rooms';
 import Users from './pages/Users';
 import DarshanVideos from './pages/DarshanVideos';
+import Announcements from './pages/Announcements';
 
 import './styles.css';
 
@@ -47,9 +48,21 @@ type Gallery = {
   description?: string;
   image_url?: string;
   category?: string;
+
+  album_id?: number | null;
+  album_name?: string | null;
+
   is_active: boolean;
 };
 
+type GalleryAlbum = {
+  id: number;
+  name: string;
+  description?: string | null;
+  display_order: number;
+  is_active: boolean;
+  created_at?: string;
+};
 const nav = [
   ['dashboard', 'Dashboard'],
   ['deities', 'Deities'],
@@ -62,6 +75,7 @@ const nav = [
   ['room-bookings', 'Room Bookings'],
   ['bookings', 'Bookings'],
   ['rooms', 'Rooms'],
+  ['announcements', 'Announcements'],
 ];
 
 function Login({
@@ -586,11 +600,15 @@ function Deities() {
     </Page>
   );
 }
-
 function Gallery() {
   const [items, setItems] = useState<Gallery[]>([]);
+  const [albums, setAlbums] = useState<GalleryAlbum[]>([]);
+
   const [editing, setEditing] =
     useState<Partial<Gallery> | null>(null);
+
+  const [editingAlbum, setEditingAlbum] =
+    useState<Partial<GalleryAlbum> | null>(null);
 
   const [error, setError] = useState('');
 
@@ -601,8 +619,19 @@ function Gallery() {
     useState<File | null>(null);
 
   const [busy, setBusy] = useState(false);
+  const [albumBusy, setAlbumBusy] = useState(false);
+
   const [deletingId, setDeletingId] =
     useState<number | null>(null);
+
+  const [deletingAlbumId, setDeletingAlbumId] =
+    useState<number | null>(null);
+
+  /*
+   * -----------------------------------------
+   * LOAD GALLERY IMAGES
+   * -----------------------------------------
+   */
 
   const load = async () => {
     try {
@@ -610,7 +639,7 @@ function Gallery() {
         data: Gallery[];
       }>('/admin/gallery');
 
-      setItems(result.data);
+      setItems(result.data || []);
     } catch (e) {
       setError(
         e instanceof Error
@@ -620,16 +649,170 @@ function Gallery() {
     }
   };
 
+  /*
+   * -----------------------------------------
+   * LOAD GALLERY HEADINGS
+   * -----------------------------------------
+   */
+
+  const loadAlbums = async () => {
+    try {
+      const result = await apiRequest<{
+        success: boolean;
+        data: GalleryAlbum[];
+      }>('/admin/gallery-albums');
+
+      setAlbums(result.data || []);
+    } catch (e) {
+      setError(
+        e instanceof Error
+          ? e.message
+          : 'Failed to load gallery headings'
+      );
+    }
+  };
+
   useEffect(() => {
     load();
+    loadAlbums();
   }, []);
 
   /*
-   * -----------------------------------------
-   * ADD GALLERY FORM
-   * -----------------------------------------
+   * =========================================
+   * GALLERY HEADING / ALBUM
+   * =========================================
    */
-  function openAddForm() {
+
+  function openAddAlbumForm() {
+    setError('');
+
+    setEditingAlbum({
+      name: '',
+      description: '',
+      display_order: albums.length + 1,
+      is_active: true,
+    });
+  }
+
+  function openEditAlbumForm(
+    album: GalleryAlbum
+  ) {
+    setError('');
+
+    setEditingAlbum({
+      ...album,
+    });
+  }
+
+  async function saveAlbum(
+    e: React.FormEvent
+  ) {
+    e.preventDefault();
+
+    if (!editingAlbum?.name?.trim()) {
+      setError('Heading name is required.');
+      return;
+    }
+
+    setError('');
+    setAlbumBusy(true);
+
+    try {
+      const isEditing =
+        Boolean(editingAlbum.id);
+
+      const endpoint = isEditing
+        ? `/admin/gallery-albums/${editingAlbum.id}`
+        : '/admin/gallery-albums';
+
+      const method = isEditing
+        ? 'PUT'
+        : 'POST';
+
+      await apiRequest(endpoint, {
+        method,
+        body: JSON.stringify({
+          name: editingAlbum.name.trim(),
+
+          description:
+            editingAlbum.description?.trim() ||
+            null,
+
+          display_order:
+            Number(
+              editingAlbum.display_order
+            ) || 0,
+
+          is_active:
+            editingAlbum.is_active !== false,
+        }),
+      });
+
+      setEditingAlbum(null);
+
+      await loadAlbums();
+    } catch (e) {
+      setError(
+        e instanceof Error
+          ? e.message
+          : 'Failed to save gallery heading'
+      );
+    } finally {
+      setAlbumBusy(false);
+    }
+  }
+
+  async function deleteAlbum(
+    album: GalleryAlbum
+  ) {
+    const imageCount = items.filter(
+      (item) => item.album_id === album.id
+    ).length;
+
+    const message =
+      imageCount > 0
+        ? `"${album.name}" contains ${imageCount} image(s).\n\nDeleting the heading will NOT delete the images. They will become unassigned.\n\nContinue?`
+        : `Delete the heading "${album.name}"?`;
+
+    if (!window.confirm(message)) {
+      return;
+    }
+
+    setError('');
+    setDeletingAlbumId(album.id);
+
+    try {
+      await apiRequest(
+        `/admin/gallery-albums/${album.id}`,
+        {
+          method: 'DELETE',
+        }
+      );
+
+      await Promise.all([
+        loadAlbums(),
+        load(),
+      ]);
+    } catch (e) {
+      setError(
+        e instanceof Error
+          ? e.message
+          : 'Failed to delete gallery heading'
+      );
+    } finally {
+      setDeletingAlbumId(null);
+    }
+  }
+
+  /*
+   * =========================================
+   * ADD GALLERY IMAGE
+   * =========================================
+   */
+
+  function openAddForm(
+    albumId?: number
+  ) {
     setError('');
     setSelectedFile(null);
     setImageMode('url');
@@ -639,15 +822,21 @@ function Gallery() {
       description: '',
       category: '',
       image_url: '',
+      album_id:
+        albumId ??
+        (albums.length === 1
+          ? albums[0].id
+          : null),
       is_active: true,
     });
   }
 
   /*
    * -----------------------------------------
-   * EDIT GALLERY FORM
+   * EDIT GALLERY IMAGE
    * -----------------------------------------
    */
+
   function openEditForm(item: Gallery) {
     setError('');
     setSelectedFile(null);
@@ -663,6 +852,7 @@ function Gallery() {
    * FILE CHANGE
    * -----------------------------------------
    */
+
   function handleFileChange(
     e: React.ChangeEvent<HTMLInputElement>
   ) {
@@ -696,10 +886,11 @@ function Gallery() {
   }
 
   /*
-   * -----------------------------------------
-   * SAVE GALLERY
-   * -----------------------------------------
+   * =========================================
+   * SAVE GALLERY IMAGE
+   * =========================================
    */
+
   async function save(
     e: React.FormEvent
   ) {
@@ -709,11 +900,28 @@ function Gallery() {
       return;
     }
 
+    /*
+     * Require a heading for NEW images.
+     *
+     * Existing legacy images are still allowed
+     * to remain unassigned until edited.
+     */
+    if (
+      !editing.id &&
+      !editing.album_id
+    ) {
+      setError(
+        'Please select a gallery heading.'
+      );
+      return;
+    }
+
     setError('');
     setBusy(true);
 
     try {
-      const isEditing = Boolean(editing.id);
+      const isEditing =
+        Boolean(editing.id);
 
       const endpoint = isEditing
         ? `/admin/gallery/${editing.id}`
@@ -724,10 +932,11 @@ function Gallery() {
         : 'POST';
 
       /*
-       * -----------------------------------------
+       * ---------------------------------------
        * UPLOAD IMAGE
-       * -----------------------------------------
+       * ---------------------------------------
        */
+
       if (imageMode === 'upload') {
         if (
           !selectedFile &&
@@ -739,10 +948,12 @@ function Gallery() {
         }
 
         /*
-         * New image selected
+         * New image file selected
          */
+
         if (selectedFile) {
-          const formData = new FormData();
+          const formData =
+            new FormData();
 
           formData.append(
             'image',
@@ -765,10 +976,23 @@ function Gallery() {
             );
           }
 
-          if (editing.category?.trim()) {
+          if (
+            editing.category?.trim()
+          ) {
             formData.append(
               'category',
               editing.category.trim()
+            );
+          }
+
+          /*
+           * NEW: send album_id
+           */
+
+          if (editing.album_id) {
+            formData.append(
+              'album_id',
+              String(editing.album_id)
             );
           }
 
@@ -786,11 +1010,14 @@ function Gallery() {
               body: formData,
             }
           );
-        } else {
-          /*
-           * Existing image.
-           * Only update text/category/status.
-           */
+        }
+
+        /*
+         * Existing image.
+         * No new file selected.
+         */
+
+        else {
           await apiRequest(
             endpoint,
             {
@@ -808,6 +1035,10 @@ function Gallery() {
                   editing.category?.trim() ||
                   null,
 
+                album_id:
+                  editing.album_id ||
+                  null,
+
                 is_active:
                   editing.is_active !== false,
               }),
@@ -817,10 +1048,11 @@ function Gallery() {
       }
 
       /*
-       * -----------------------------------------
+       * ---------------------------------------
        * IMAGE URL
-       * -----------------------------------------
+       * ---------------------------------------
        */
+
       else {
         const imageUrl =
           editing.image_url?.trim();
@@ -850,6 +1082,13 @@ function Gallery() {
                 editing.category?.trim() ||
                 null,
 
+              /*
+               * NEW
+               */
+              album_id:
+                editing.album_id ||
+                null,
+
               is_active:
                 editing.is_active !== false,
             }),
@@ -873,16 +1112,18 @@ function Gallery() {
   }
 
   /*
-   * -----------------------------------------
-   * PERMANENT DELETE GALLERY IMAGE
-   * -----------------------------------------
+   * =========================================
+   * DELETE GALLERY IMAGE
+   * =========================================
    */
+
   async function handleDeleteGallery(
     id: number
   ) {
-    const confirmed = window.confirm(
-      'Are you sure you want to permanently delete this gallery image?'
-    );
+    const confirmed =
+      window.confirm(
+        'Are you sure you want to permanently delete this gallery image?'
+      );
 
     if (!confirmed) {
       return;
@@ -892,9 +1133,6 @@ function Gallery() {
     setDeletingId(id);
 
     try {
-      /*
-       * DELETE FROM DATABASE
-       */
       await apiRequest(
         `/admin/gallery/${id}`,
         {
@@ -902,12 +1140,10 @@ function Gallery() {
         }
       );
 
-      /*
-       * Remove immediately from admin UI.
-       */
       setItems((currentItems) =>
         currentItems.filter(
-          (item) => item.id !== id
+          (item) =>
+            item.id !== id
         )
       );
     } catch (error) {
@@ -926,18 +1162,69 @@ function Gallery() {
     }
   }
 
+  /*
+   * =========================================
+   * HELPER
+   * =========================================
+   */
+
+  function getAlbumImageCount(
+    albumId: number
+  ) {
+    return items.filter(
+      (item) =>
+        item.album_id === albumId
+    ).length;
+  }
+
+  /*
+   * =========================================
+   * UI
+   * =========================================
+   */
+
   return (
     <Page
       title="Gallery"
-      subtitle="Manage images shown in the devotee app"
+      subtitle="Manage gallery headings and images shown in the devotee app"
       action={
-        <button
-          className="primary"
-          onClick={openAddForm}
-          disabled={busy || deletingId !== null}
+        <div
+          style={{
+            display: 'flex',
+            gap: '10px',
+            flexWrap: 'wrap',
+          }}
         >
-          + Add Image
-        </button>
+          <button
+            type="button"
+            onClick={
+              openAddAlbumForm
+            }
+            disabled={
+              busy ||
+              albumBusy ||
+              deletingAlbumId !== null
+            }
+          >
+            + Create Heading
+          </button>
+
+          <button
+            type="button"
+            className="primary"
+            onClick={() =>
+              openAddForm()
+            }
+            disabled={
+              busy ||
+              albumBusy ||
+              deletingId !== null ||
+              albums.length === 0
+            }
+          >
+            + Add Image
+          </button>
+        </div>
       }
     >
       {error && (
@@ -946,7 +1233,323 @@ function Gallery() {
         </div>
       )}
 
-      {/* ADD / EDIT FORM */}
+      {albums.length === 0 &&
+        !editingAlbum && (
+          <div className="panel">
+            <h3>
+              Create your first gallery heading
+            </h3>
+
+            <p>
+              Create a heading such as
+              Anjaneya Swamy, Temple
+              Outside or Festivals before
+              adding new gallery images.
+            </p>
+
+            <button
+              type="button"
+              className="primary"
+              onClick={
+                openAddAlbumForm
+              }
+            >
+              + Create Heading
+            </button>
+          </div>
+        )}
+
+      {/* =====================================
+          CREATE / EDIT HEADING
+          ===================================== */}
+
+      {editingAlbum && (
+        <form
+          className="form-card"
+          onSubmit={saveAlbum}
+        >
+          <h3>
+            {editingAlbum.id
+              ? 'Edit Gallery Heading'
+              : 'Create Gallery Heading'}
+          </h3>
+
+          <div className="grid2">
+            <label>
+              Heading Name
+
+              <input
+                value={
+                  editingAlbum.name ||
+                  ''
+                }
+                onChange={(e) =>
+                  setEditingAlbum({
+                    ...editingAlbum,
+                    name:
+                      e.target.value,
+                  })
+                }
+                placeholder="Anjaneya Swamy"
+                required
+              />
+            </label>
+
+            <label>
+              Display Order
+
+              <input
+                type="number"
+                min="0"
+                value={
+                  editingAlbum.display_order ??
+                  0
+                }
+                onChange={(e) =>
+                  setEditingAlbum({
+                    ...editingAlbum,
+                    display_order:
+                      Number(
+                        e.target.value
+                      ),
+                  })
+                }
+              />
+            </label>
+          </div>
+
+          <label>
+            Description
+
+            <span
+              style={{
+                fontWeight:
+                  'normal',
+                fontSize: '12px',
+              }}
+            >
+              {' '}
+              (optional)
+            </span>
+
+            <textarea
+              value={
+                editingAlbum.description ||
+                ''
+              }
+              onChange={(e) =>
+                setEditingAlbum({
+                  ...editingAlbum,
+                  description:
+                    e.target.value,
+                })
+              }
+              placeholder="Optional heading description"
+            />
+          </label>
+
+          <label
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={
+                editingAlbum.is_active !==
+                false
+              }
+              onChange={(e) =>
+                setEditingAlbum({
+                  ...editingAlbum,
+                  is_active:
+                    e.target.checked,
+                })
+              }
+            />
+
+            Active
+          </label>
+
+          <div className="actions">
+            <button
+              type="button"
+              onClick={() =>
+                setEditingAlbum(null)
+              }
+              disabled={albumBusy}
+            >
+              Cancel
+            </button>
+
+            <button
+              type="submit"
+              className="primary"
+              disabled={albumBusy}
+            >
+              {albumBusy
+                ? 'Saving…'
+                : editingAlbum.id
+                  ? 'Save Heading'
+                  : 'Create Heading'}
+            </button>
+          </div>
+        </form>
+      )}
+
+      {/* =====================================
+          HEADINGS
+          ===================================== */}
+
+      {albums.length > 0 && (
+        <div
+          className="panel"
+          style={{
+            marginBottom: '24px',
+          }}
+        >
+          <h3>
+            Gallery Headings
+          </h3>
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns:
+                'repeat(auto-fit, minmax(230px, 1fr))',
+              gap: '14px',
+              marginTop: '16px',
+            }}
+          >
+            {albums.map(
+              (album) => {
+                const count =
+                  getAlbumImageCount(
+                    album.id
+                  );
+
+                return (
+                  <div
+                    key={album.id}
+                    style={{
+                      border:
+                        '1px solid #e5e7eb',
+                      borderRadius:
+                        '12px',
+                      padding: '16px',
+                    }}
+                  >
+                    <div
+                      style={{
+                        display:
+                          'flex',
+                        justifyContent:
+                          'space-between',
+                        gap: '10px',
+                      }}
+                    >
+                      <strong>
+                        {album.name}
+                      </strong>
+
+                      <span className="badge">
+                        {album.is_active
+                          ? 'Active'
+                          : 'Inactive'}
+                      </span>
+                    </div>
+
+                    {album.description && (
+                      <p>
+                        {
+                          album.description
+                        }
+                      </p>
+                    )}
+
+                    <p
+                      style={{
+                        margin:
+                          '10px 0',
+                      }}
+                    >
+                      <strong>
+                        {count}
+                      </strong>{' '}
+                      {count === 1
+                        ? 'photo'
+                        : 'photos'}
+                    </p>
+
+                    <small>
+                      Display order:{' '}
+                      {
+                        album.display_order
+                      }
+                    </small>
+
+                    <div
+                      className="actions"
+                      style={{
+                        marginTop:
+                          '14px',
+                      }}
+                    >
+                      <button
+                        type="button"
+                        className="primary"
+                        onClick={() =>
+                          openAddForm(
+                            album.id
+                          )
+                        }
+                      >
+                        + Add Photo
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          openEditAlbumForm(
+                            album
+                          )
+                        }
+                      >
+                        Edit
+                      </button>
+
+                      <button
+                        type="button"
+                        className="danger"
+                        disabled={
+                          deletingAlbumId ===
+                          album.id
+                        }
+                        onClick={() =>
+                          deleteAlbum(
+                            album
+                          )
+                        }
+                      >
+                        {deletingAlbumId ===
+                        album.id
+                          ? 'Deleting…'
+                          : 'Delete'}
+                      </button>
+                    </div>
+                  </div>
+                );
+              }
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* =====================================
+          ADD / EDIT IMAGE
+          ===================================== */}
 
       {editing && (
         <form
@@ -959,13 +1562,69 @@ function Gallery() {
               : 'Add Gallery Image'}
           </h3>
 
+          {/* HEADING */}
+
+          <label>
+            Gallery Heading
+
+            <select
+              value={
+                editing.album_id ??
+                ''
+              }
+              onChange={(e) =>
+                setEditing({
+                  ...editing,
+                  album_id:
+                    e.target.value
+                      ? Number(
+                          e.target
+                            .value
+                        )
+                      : null,
+                })
+              }
+              required={!editing.id}
+            >
+              <option value="">
+                Select heading
+              </option>
+
+              {albums
+                .filter(
+                  (album) =>
+                    album.is_active ||
+                    album.id ===
+                      editing.album_id
+                )
+                .map(
+                  (album) => (
+                    <option
+                      key={
+                        album.id
+                      }
+                      value={
+                        album.id
+                      }
+                    >
+                      {
+                        album.name
+                      }
+                    </option>
+                  )
+                )}
+            </select>
+          </label>
+
           {/* IMAGE MODE */}
 
           <div
             style={{
               display: 'flex',
               gap: '10px',
-              marginBottom: '18px',
+              marginBottom:
+                '18px',
+              marginTop: '18px',
             }}
           >
             <button
@@ -987,12 +1646,15 @@ function Gallery() {
             <button
               type="button"
               className={
-                imageMode === 'upload'
+                imageMode ===
+                'upload'
                   ? 'primary'
                   : ''
               }
               onClick={() => {
-                setImageMode('upload');
+                setImageMode(
+                  'upload'
+                );
                 setError('');
               }}
             >
@@ -1009,7 +1671,8 @@ function Gallery() {
               <input
                 type="url"
                 value={
-                  editing.image_url || ''
+                  editing.image_url ||
+                  ''
                 }
                 onChange={(e) =>
                   setEditing({
@@ -1023,9 +1686,10 @@ function Gallery() {
             </label>
           )}
 
-          {/* UPLOAD IMAGE */}
+          {/* FILE UPLOAD */}
 
-          {imageMode === 'upload' && (
+          {imageMode ===
+            'upload' && (
             <label>
               Upload Image
 
@@ -1039,17 +1703,17 @@ function Gallery() {
 
               <small
                 style={{
-                  display: 'block',
-                  marginTop: '6px',
+                  display:
+                    'block',
+                  marginTop:
+                    '6px',
                 }}
               >
-                JPG, JPEG, PNG or WEBP ·
-                Maximum 5 MB
+                JPG, JPEG, PNG or
+                WEBP · Maximum 5 MB
               </small>
             </label>
           )}
-
-          {/* TITLE / CATEGORY */}
 
           <div className="grid2">
             <label>
@@ -1057,8 +1721,10 @@ function Gallery() {
 
               <span
                 style={{
-                  fontWeight: 'normal',
-                  fontSize: '12px',
+                  fontWeight:
+                    'normal',
+                  fontSize:
+                    '12px',
                 }}
               >
                 {' '}
@@ -1067,7 +1733,8 @@ function Gallery() {
 
               <input
                 value={
-                  editing.title || ''
+                  editing.title ||
+                  ''
                 }
                 onChange={(e) =>
                   setEditing({
@@ -1085,8 +1752,10 @@ function Gallery() {
 
               <span
                 style={{
-                  fontWeight: 'normal',
-                  fontSize: '12px',
+                  fontWeight:
+                    'normal',
+                  fontSize:
+                    '12px',
                 }}
               >
                 {' '}
@@ -1095,7 +1764,8 @@ function Gallery() {
 
               <input
                 value={
-                  editing.category || ''
+                  editing.category ||
+                  ''
                 }
                 onChange={(e) =>
                   setEditing({
@@ -1109,14 +1779,13 @@ function Gallery() {
             </label>
           </div>
 
-          {/* DESCRIPTION */}
-
           <label>
             Description
 
             <span
               style={{
-                fontWeight: 'normal',
+                fontWeight:
+                  'normal',
                 fontSize: '12px',
               }}
             >
@@ -1126,7 +1795,8 @@ function Gallery() {
 
             <textarea
               value={
-                editing.description || ''
+                editing.description ||
+                ''
               }
               onChange={(e) =>
                 setEditing({
@@ -1139,7 +1809,7 @@ function Gallery() {
             />
           </label>
 
-          {/* IMAGE PREVIEW */}
+          {/* PREVIEW */}
 
           {editing.image_url && (
             <img
@@ -1158,14 +1828,14 @@ function Gallery() {
             />
           )}
 
-          {/* ACTIONS */}
-
           <div className="actions">
             <button
               type="button"
               onClick={() => {
                 setEditing(null);
-                setSelectedFile(null);
+                setSelectedFile(
+                  null
+                );
               }}
               disabled={busy}
             >
@@ -1187,7 +1857,25 @@ function Gallery() {
         </form>
       )}
 
-      {/* GALLERY LIST */}
+      {/* =====================================
+          EXISTING GALLERY IMAGES
+          ===================================== */}
+
+      <div
+        style={{
+          marginTop: '24px',
+          marginBottom: '12px',
+        }}
+      >
+        <h3>
+          Gallery Images
+        </h3>
+
+        <p>
+          Existing and newly uploaded
+          gallery photos.
+        </p>
+      </div>
 
       <div className="gallery-grid">
         {items.map((x) => (
@@ -1221,6 +1909,22 @@ function Gallery() {
                   'Gallery Image'}
               </strong>
 
+              {/* HEADING */}
+
+              <div
+                style={{
+                  marginTop:
+                    '6px',
+                  marginBottom:
+                    '6px',
+                }}
+              >
+                <span className="badge">
+                  {x.album_name ||
+                    'Unassigned'}
+                </span>
+              </div>
+
               {x.category && (
                 <span>
                   {x.category}
@@ -1240,7 +1944,8 @@ function Gallery() {
                     openEditForm(x)
                   }
                   disabled={
-                    deletingId !== null
+                    deletingId !==
+                    null
                   }
                 >
                   Edit
@@ -1255,10 +1960,12 @@ function Gallery() {
                     )
                   }
                   disabled={
-                    deletingId !== null
+                    deletingId !==
+                    null
                   }
                 >
-                  {deletingId === x.id
+                  {deletingId ===
+                  x.id
                     ? 'Deleting…'
                     : 'Delete'}
                 </button>
@@ -1270,7 +1977,6 @@ function Gallery() {
     </Page>
   );
 }
-
 function Page({
   title,
   subtitle,
@@ -1432,6 +2138,7 @@ function App() {
       {page === 'darshan-videos' && (
   <DarshanVideos />
 )}
+{page === 'announcements' && <Announcements />}
     </div>
   );
 }
