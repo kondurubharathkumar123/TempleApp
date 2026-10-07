@@ -233,3 +233,95 @@ export const getMe = async (
     });
   }
 };
+// =========================
+// FORGOT PASSWORD
+// =========================
+
+export const forgotPassword = async (
+  req: Request,
+  res: Response
+) => {
+  try {
+    const { phone } = req.body;
+
+    if (!phone) {
+      return res.status(400).json({
+        success: false,
+        message: 'Mobile number is required',
+      });
+    }
+
+    // Find user by mobile number
+    const userResult = await pool.query(
+      `SELECT id, full_name, phone
+       FROM users
+       WHERE phone = $1`,
+      [phone]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'No account found with this mobile number',
+      });
+    }
+
+    const user = userResult.rows[0];
+
+    // Generate 6-digit OTP
+    const otp = Math.floor(
+      100000 + Math.random() * 900000
+    ).toString();
+
+    // Hash OTP before storing
+    const otpHash = await bcrypt.hash(otp, 10);
+
+    // OTP valid for 5 minutes
+    const expiresAt = new Date(
+      Date.now() + 5 * 60 * 1000
+    );
+
+    // Remove previous password reset OTPs for this user
+    await pool.query(
+      `DELETE FROM password_reset_otps
+       WHERE user_id = $1`,
+      [user.id]
+    );
+
+    // Store new OTP
+    await pool.query(
+      `INSERT INTO password_reset_otps (
+        user_id,
+        otp_hash,
+        expires_at
+      )
+      VALUES ($1, $2, $3)`,
+      [
+        user.id,
+        otpHash,
+        expiresAt,
+      ]
+    );
+
+    // DEVELOPMENT ONLY
+    // Later this will be replaced with real SMS delivery.
+    console.log(
+      `[DEV OTP] Password reset OTP for ${phone}: ${otp}`
+    );
+
+    return res.json({
+      success: true,
+      message: 'OTP generated successfully',
+    });
+  } catch (error) {
+    console.error(
+      'Forgot password error:',
+      error
+    );
+
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to generate OTP',
+    });
+  }
+};
