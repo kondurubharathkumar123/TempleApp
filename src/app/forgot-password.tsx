@@ -32,14 +32,25 @@ export default function ForgotPasswordScreen() {
   const handleSendOtp = async () => {
     const cleanPhone = phone.trim();
 
+    // Empty mobile number
     if (!cleanPhone) {
       Alert.alert(
         'Mobile Number Required',
-        'Please enter your registered mobile number.'
+        'Please enter your registered 10-digit mobile number.'
       );
       return;
     }
 
+    // Less than 10 digits
+    if (cleanPhone.length < 10) {
+      Alert.alert(
+        'Invalid Mobile Number',
+        'Please enter a correct 10-digit mobile number.'
+      );
+      return;
+    }
+
+    // Final validation
     if (!/^\d{10}$/.test(cleanPhone)) {
       Alert.alert(
         'Invalid Mobile Number',
@@ -64,7 +75,7 @@ export default function ForgotPasswordScreen() {
       if (response.success) {
         Alert.alert(
           'OTP Sent',
-          'An OTP has been generated for your registered mobile number.'
+          'OTP has been generated successfully. Please enter the 6-digit OTP.'
         );
 
         setStep('otp');
@@ -94,10 +105,26 @@ export default function ForgotPasswordScreen() {
   const handleVerifyOtp = async () => {
     const cleanOtp = otp.trim();
 
+    if (!cleanOtp) {
+      Alert.alert(
+        'OTP Required',
+        'Please enter the 6-digit OTP.'
+      );
+      return;
+    }
+
+    if (cleanOtp.length !== 6) {
+      Alert.alert(
+        'Invalid OTP',
+        'Please enter the complete 6-digit OTP.'
+      );
+      return;
+    }
+
     if (!/^\d{6}$/.test(cleanOtp)) {
       Alert.alert(
         'Invalid OTP',
-        'Please enter the 6-digit OTP.'
+        'OTP must contain only numbers.'
       );
       return;
     }
@@ -158,6 +185,14 @@ export default function ForgotPasswordScreen() {
       return;
     }
 
+    if (!confirmPassword) {
+      Alert.alert(
+        'Confirm Password Required',
+        'Please enter your new password again.'
+      );
+      return;
+    }
+
     if (newPassword !== confirmPassword) {
       Alert.alert(
         'Passwords Do Not Match',
@@ -181,16 +216,25 @@ export default function ForgotPasswordScreen() {
       );
 
       if (response.success) {
+        // Clear sensitive values
+        setOtp('');
+        setNewPassword('');
+        setConfirmPassword('');
+
         Alert.alert(
-          'Password Changed',
-          'Your password has been reset successfully.',
+          'Password Reset Successful',
+          'Your password has been reset successfully. You can now login using your new password.',
           [
             {
-              text: 'Login',
-              onPress: () =>
-                router.replace('/login'),
+              text: 'Go to Login',
+              onPress: () => {
+                router.replace('/login');
+              },
             },
-          ]
+          ],
+          {
+            cancelable: false,
+          }
         );
 
         return;
@@ -213,7 +257,7 @@ export default function ForgotPasswordScreen() {
   };
 
   // =========================
-  // SCREEN CONTENT
+  // PHONE STEP
   // =========================
 
   const renderPhoneStep = () => (
@@ -223,7 +267,7 @@ export default function ForgotPasswordScreen() {
       </Text>
 
       <Text style={styles.subtitle}>
-        Enter your registered mobile number.
+        Enter your registered 10-digit mobile number.
         We will send you an OTP to verify your account.
       </Text>
 
@@ -236,7 +280,9 @@ export default function ForgotPasswordScreen() {
         value={phone}
         onChangeText={(value) =>
           setPhone(
-            value.replace(/[^0-9]/g, '').slice(0, 10)
+            value
+              .replace(/[^0-9]/g, '')
+              .slice(0, 10)
           )
         }
         placeholder="Enter 10-digit mobile number"
@@ -245,6 +291,10 @@ export default function ForgotPasswordScreen() {
         maxLength={10}
         editable={!loading}
       />
+
+      <Text style={styles.helperText}>
+        Mobile number must contain exactly 10 digits.
+      </Text>
 
       <TouchableOpacity
         style={[
@@ -255,11 +305,17 @@ export default function ForgotPasswordScreen() {
         disabled={loading}
       >
         <Text style={styles.primaryButtonText}>
-          {loading ? 'Sending...' : 'Send OTP'}
+          {loading
+            ? 'Sending...'
+            : 'Send OTP'}
         </Text>
       </TouchableOpacity>
     </>
   );
+
+  // =========================
+  // OTP STEP
+  // =========================
 
   const renderOtpStep = () => (
     <>
@@ -284,7 +340,9 @@ export default function ForgotPasswordScreen() {
         value={otp}
         onChangeText={(value) =>
           setOtp(
-            value.replace(/[^0-9]/g, '').slice(0, 6)
+            value
+              .replace(/[^0-9]/g, '')
+              .slice(0, 6)
           )
         }
         placeholder="000000"
@@ -293,6 +351,10 @@ export default function ForgotPasswordScreen() {
         maxLength={6}
         editable={!loading}
       />
+
+      <Text style={styles.helperText}>
+        Enter the complete 6-digit OTP.
+      </Text>
 
       <TouchableOpacity
         style={[
@@ -324,6 +386,10 @@ export default function ForgotPasswordScreen() {
     </>
   );
 
+  // =========================
+  // PASSWORD STEP
+  // =========================
+
   const renderPasswordStep = () => (
     <>
       <Text style={styles.title}>
@@ -350,6 +416,10 @@ export default function ForgotPasswordScreen() {
         editable={!loading}
       />
 
+      <Text style={styles.helperText}>
+        Password must contain at least 6 characters.
+      </Text>
+
       <Text style={styles.inputLabel}>
         Confirm Password
       </Text>
@@ -364,6 +434,10 @@ export default function ForgotPasswordScreen() {
         autoCapitalize="none"
         editable={!loading}
       />
+
+      <Text style={styles.helperText}>
+        Re-enter the same password to confirm.
+      </Text>
 
       <TouchableOpacity
         style={[
@@ -381,6 +455,10 @@ export default function ForgotPasswordScreen() {
       </TouchableOpacity>
     </>
   );
+
+  // =========================
+  // SCREEN
+  // =========================
 
   return (
     <KeyboardAvoidingView
@@ -407,7 +485,9 @@ export default function ForgotPasswordScreen() {
 
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => router.back()}
+          onPress={() =>
+            router.replace('/login')
+          }
           disabled={loading}
         >
           <Text style={styles.backButtonText}>
@@ -467,9 +547,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     fontSize: 13,
     color: '#333',
-    marginBottom: 18,
+    marginBottom: 6,
     borderWidth: 1,
     borderColor: '#EEE3D8',
+  },
+
+  helperText: {
+    fontSize: 11,
+    color: '#777',
+    marginBottom: 18,
+    marginLeft: 3,
   },
 
   otpInput: {

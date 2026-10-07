@@ -1,11 +1,11 @@
 import { apiRequest, API_BASE_URL } from '@/services/api';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import {
   setAudioModeAsync,
   useAudioPlayer,
   useAudioPlayerStatus,
 } from 'expo-audio';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type React from 'react';
 import {
   Animated,
@@ -147,11 +147,17 @@ type DarshanVideo = {
 };
 
 export default function HomeScreen() {
+  useFocusEffect(
+  useCallback(() => {
+    loadUnreadNotificationCount();
+  }, [])
+);
   const { width } = useWindowDimensions();
   const [events, setEvents] = useState<any[]>([]);
   const [eventsLoading, setEventsLoading] = useState(true);
   const [scrolled, setScrolled] = useState(false);
   const [darshanVideos, setDarshanVideos] = useState<DarshanVideo[]>([]);
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
 
   const player = useAudioPlayer(require('@/assets/audio/home-welcome.mp3'), {
     downloadFirst: true,
@@ -266,10 +272,11 @@ export default function HomeScreen() {
   };
 }, [playerStatus.isLoaded]);
 
-  useEffect(() => {
-    loadEvents();
-    loadDarshanVideos();
-  }, []);
+useEffect(() => {
+  loadEvents();
+  loadDarshanVideos();
+  
+}, []);
 
   const loadEvents = async () => {
     try {
@@ -286,6 +293,26 @@ export default function HomeScreen() {
     }
   };
 
+  const loadUnreadNotificationCount = async () => {
+  try {
+    const response = await apiRequest(
+      '/notifications/unread-count'
+    );
+
+    if (response.success) {
+      setUnreadNotificationCount(
+        response.data?.unreadCount || 0
+      );
+    }
+  } catch (error) {
+    console.error(
+      'Unread notification count error:',
+      error
+    );
+
+    setUnreadNotificationCount(0);
+  }
+};
   const loadDarshanVideos = async () => {
     try {
       const response = await apiRequest<{
@@ -399,12 +426,21 @@ export default function HomeScreen() {
                   transform: [{ scale: notificationScale }],
                 },
               ]}
-              onPress={() => router.push('/profile')}
+              onPress={() => router.push('/notifications')}
               onPressIn={() => animatePress(notificationScale, 0.9)}
               onPressOut={() => animatePress(notificationScale, 1)}
             >
               <Text style={styles.notificationIcon}>🔔</Text>
-              <View style={styles.notificationDot} />
+
+{unreadNotificationCount > 0 && (
+  <View style={styles.notificationBadge}>
+    <Text style={styles.notificationBadgeText}>
+      {unreadNotificationCount > 99
+        ? '99+'
+        : unreadNotificationCount}
+    </Text>
+  </View>
+)}
             </AnimatedTouchable>
           </View>
 
@@ -2851,4 +2887,25 @@ aboutUsCard: {
     color: COLORS.darkBrown,
     marginTop: 7,
   },
+  notificationBadge: {
+  position: 'absolute',
+  top: 4,
+  right: 3,
+  minWidth: 18,
+  height: 18,
+  borderRadius: 9,
+  paddingHorizontal: 4,
+  backgroundColor: '#C64732',
+  borderWidth: 1.5,
+  borderColor: COLORS.white,
+  alignItems: 'center',
+  justifyContent: 'center',
+},
+
+notificationBadgeText: {
+  color: COLORS.white,
+  fontSize: 9,
+  fontWeight: '800',
+  lineHeight: 12,
+},
 });

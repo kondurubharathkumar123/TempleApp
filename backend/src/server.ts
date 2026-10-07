@@ -159,6 +159,20 @@ app.listen(PORT, '0.0.0.0', () => {
 // SCHEDULED NOTIFICATION PROCESSOR
 // ========================================
 
+// ========================================
+// SCHEDULED NOTIFICATION PROCESSOR
+// ========================================
+
+// Run once when backend starts
+processScheduledNotifications()
+  .catch((error) => {
+    console.error(
+      'Initial notification scheduler error:',
+      error
+    );
+  });
+
+// Then check every 30 seconds
 setInterval(
   () => {
     processScheduledNotifications()

@@ -17,6 +17,7 @@ const IS_EXPO_GO =
 // ========================================
 
 const API_BASE_URL =
+//'https://monk0y8jf9.execute-api.ap-south-1.amazonaws.com/api'
    'https://templeapp-s96e.onrender.com/api';
   //'http://192.168.0.107:5000/api';
 

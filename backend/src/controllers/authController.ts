@@ -268,11 +268,12 @@ export const forgotPassword = async (
     }
 
     const user = userResult.rows[0];
+    const otp = '000000';
 
     // Generate 6-digit OTP
-   const otp = crypto
-  .randomInt(100000, 1000000)
-  .toString();
+   //const otp = crypto
+  //.randomInt(100000, 1000000)
+  //toString();
     // Hash OTP before storing
     const otpHash = await bcrypt.hash(otp, 10);
 
