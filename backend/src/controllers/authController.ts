@@ -3,6 +3,7 @@ import { AuthRequest } from '../middleware/authMiddleware';
 import bcrypt from 'bcryptjs';
 import { pool } from '../db';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 
 // =========================
 // REGISTER
@@ -269,10 +270,9 @@ export const forgotPassword = async (
     const user = userResult.rows[0];
 
     // Generate 6-digit OTP
-    const otp = Math.floor(
-      100000 + Math.random() * 900000
-    ).toString();
-
+   const otp = crypto
+  .randomInt(100000, 1000000)
+  .toString();
     // Hash OTP before storing
     const otpHash = await bcrypt.hash(otp, 10);
 
@@ -322,6 +322,231 @@ export const forgotPassword = async (
     return res.status(500).json({
       success: false,
       message: 'Failed to generate OTP',
+    });
+  }
+};
+// =========================
+// VERIFY RESET OTP
+// =========================
+
+export const verifyResetOtp = async (
+  req: Request,
+  res: Response
+) => {
+  try {
+    const { phone, otp } = req.body;
+
+    if (!phone || !otp) {
+      return res.status(400).json({
+        success: false,
+        message: 'Mobile number and OTP are required',
+      });
+    }
+
+    const userResult = await pool.query(
+      `SELECT id
+       FROM users
+       WHERE phone = $1`,
+      [phone]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid or expired OTP',
+      });
+    }
+
+    const userId = userResult.rows[0].id;
+
+    const otpResult = await pool.query(
+      `SELECT id, otp_hash, expires_at, attempt_count
+       FROM password_reset_otps
+       WHERE user_id = $1
+       AND verified = FALSE
+       ORDER BY created_at DESC
+       LIMIT 1`,
+      [userId]
+    );
+
+    if (otpResult.rows.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid or expired OTP',
+      });
+    }
+
+    const otpRecord = otpResult.rows[0];
+
+    // Maximum 5 verification attempts
+    if (otpRecord.attempt_count >= 5) {
+      return res.status(429).json({
+        success: false,
+        message: 'Too many OTP attempts. Request a new OTP.',
+      });
+    }
+
+    // Check expiry
+    if (new Date() > new Date(otpRecord.expires_at)) {
+      await pool.query(
+        `DELETE FROM password_reset_otps
+         WHERE id = $1`,
+        [otpRecord.id]
+      );
+
+      return res.status(400).json({
+        success: false,
+        message: 'OTP has expired. Request a new OTP.',
+      });
+    }
+
+    const isValidOtp = await bcrypt.compare(
+      String(otp),
+      otpRecord.otp_hash
+    );
+
+    if (!isValidOtp) {
+      await pool.query(
+        `UPDATE password_reset_otps
+         SET attempt_count = attempt_count + 1
+         WHERE id = $1`,
+        [otpRecord.id]
+      );
+
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid OTP',
+      });
+    }
+
+    await pool.query(
+      `UPDATE password_reset_otps
+       SET verified = TRUE
+       WHERE id = $1`,
+      [otpRecord.id]
+    );
+
+    return res.json({
+      success: true,
+      message: 'OTP verified successfully',
+    });
+  } catch (error) {
+    console.error(
+      'Verify reset OTP error:',
+      error
+    );
+
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to verify OTP',
+    });
+  }
+};
+// =========================
+// RESET PASSWORD
+// =========================
+
+export const resetPassword = async (
+  req: Request,
+  res: Response
+) => {
+  try {
+    const { phone, newPassword } = req.body;
+
+    if (!phone || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'Mobile number and new password are required',
+      });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 6 characters',
+      });
+    }
+
+    const userResult = await pool.query(
+      `SELECT id
+       FROM users
+       WHERE phone = $1`,
+      [phone]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Unable to reset password',
+      });
+    }
+
+    const userId = userResult.rows[0].id;
+
+    const otpResult = await pool.query(
+      `SELECT id, expires_at
+       FROM password_reset_otps
+       WHERE user_id = $1
+       AND verified = TRUE
+       ORDER BY created_at DESC
+       LIMIT 1`,
+      [userId]
+    );
+
+    if (otpResult.rows.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'OTP verification required',
+      });
+    }
+
+    const otpRecord = otpResult.rows[0];
+
+    if (new Date() > new Date(otpRecord.expires_at)) {
+      await pool.query(
+        `DELETE FROM password_reset_otps
+         WHERE id = $1`,
+        [otpRecord.id]
+      );
+
+      return res.status(400).json({
+        success: false,
+        message: 'Password reset session has expired',
+      });
+    }
+
+    const passwordHash = await bcrypt.hash(
+      newPassword,
+      10
+    );
+
+    await pool.query(
+      `UPDATE users
+       SET password_hash = $1
+       WHERE id = $2`,
+      [passwordHash, userId]
+    );
+
+    // OTP can never be reused after password reset
+    await pool.query(
+      `DELETE FROM password_reset_otps
+       WHERE user_id = $1`,
+      [userId]
+    );
+
+    return res.json({
+      success: true,
+      message: 'Password reset successfully',
+    });
+  } catch (error) {
+    console.error(
+      'Reset password error:',
+      error
+    );
+
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to reset password',
     });
   }
 };

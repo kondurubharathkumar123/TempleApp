@@ -78,9 +78,19 @@ export default function LoginScreen() {
     router.push('/register');
   };
 
+  // =========================
+  // OPEN FORGOT PASSWORD
+  // =========================
+
+  const handleForgotPassword = () => {
+    router.push('/forgot-password');
+  };
+
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>TEMPLE</Text>
+      <Text style={styles.label}>
+        TEMPLE
+      </Text>
 
       <Text style={styles.title}>
         Welcome Back
@@ -126,6 +136,20 @@ export default function LoginScreen() {
         secureTextEntry
         autoCapitalize="none"
       />
+
+      {/* =========================
+          FORGOT PASSWORD
+      ========================= */}
+
+      <TouchableOpacity
+        style={styles.forgotPasswordButton}
+        onPress={handleForgotPassword}
+        disabled={loading}
+      >
+        <Text style={styles.forgotPasswordText}>
+          Forgot Password?
+        </Text>
+      </TouchableOpacity>
 
       {/* =========================
           LOGIN BUTTON
@@ -226,6 +250,26 @@ const styles = StyleSheet.create({
     borderColor: '#EEE3D8',
   },
 
+  // =========================
+  // FORGOT PASSWORD
+  // =========================
+
+  forgotPasswordButton: {
+    alignSelf: 'flex-end',
+    marginTop: -8,
+    marginBottom: 18,
+  },
+
+  forgotPasswordText: {
+    color: '#B66A2C',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+
+  // =========================
+  // LOGIN
+  // =========================
+
   loginButton: {
     height: 50,
     borderRadius: 15,
@@ -245,6 +289,10 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
+  // =========================
+  // REGISTER
+  // =========================
+
   registerButton: {
     height: 45,
     borderRadius: 15,
@@ -259,6 +307,10 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
   },
+
+  // =========================
+  // BACK
+  // =========================
 
   backButton: {
     height: 45,

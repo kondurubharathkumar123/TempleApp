@@ -9,7 +9,7 @@ import {
 
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import styles from './about.styles.ts';
+import styles from './about.styles';
 
 export default function AboutScreen() {
   return (

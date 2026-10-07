@@ -4,6 +4,8 @@ import {
   login,
   getMe,
   forgotPassword,
+   verifyResetOtp,
+   resetPassword,
 } from '../controllers/authController';
 import { authenticateToken } from '../middleware/authMiddleware';
 
@@ -14,6 +16,14 @@ router.post('/login', login);
 router.post(
   '/forgot-password',
   forgotPassword
+);
+router.post(
+  '/verify-reset-otp',
+  verifyResetOtp
+);
+router.post(
+  '/reset-password',
+  resetPassword
 );
 
 router.get(

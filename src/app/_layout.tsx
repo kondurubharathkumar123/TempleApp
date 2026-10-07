@@ -171,7 +171,8 @@ export default function RootLayout() {
 
         const isAuthScreen =
           firstSegment === 'login' ||
-          firstSegment === 'register';
+          firstSegment === 'register' ||
+          firstSegment === 'forgot-password';
 
 
         // ==================================
@@ -313,6 +314,9 @@ export default function RootLayout() {
         <Stack.Screen
           name="register"
         />
+        <Stack.Screen
+  name="forgot-password"
+/>
 
 
         {/* Main Application */}
