@@ -152,6 +152,30 @@ export async function sendNotificationRecord(
       };
     }
 
+    // ------------------------------------
+// CREATE IN-APP DELIVERY FOR ALL USERS
+// ------------------------------------
+
+await pool.query(
+  `
+    INSERT INTO notification_deliveries (
+      notification_id,
+      user_id,
+      status
+    )
+    SELECT
+      $1,
+      id,
+      'pending'
+    FROM users
+    ON CONFLICT (
+      notification_id,
+      user_id
+    )
+    DO NOTHING
+  `,
+  [notificationId]
+);
 
     // ------------------------------------
     // GET ACTIVE DEVICES
@@ -161,24 +185,39 @@ export async function sendNotificationRecord(
       await getAllActiveDevices();
 
     if (devices.length === 0) {
-      await pool.query(
-        `
-          UPDATE notifications
-          SET
-            status = 'failed',
-            updated_at = CURRENT_TIMESTAMP
-          WHERE id = $1
-        `,
-        [notificationId]
-      );
+  // No push-capable devices, but the notification
+  // is still available in the in-app Notification Center.
 
-      return {
-        success: false,
-        sent: 0,
-        message: 'No active devices found',
-      };
-    }
+  await pool.query(
+    `
+      UPDATE notification_deliveries
+      SET status = 'no_device'
+      WHERE notification_id = $1
+        AND status = 'pending'
+    `,
+    [notificationId]
+  );
 
+  await pool.query(
+    `
+      UPDATE notifications
+      SET
+        status = 'sent',
+        sent_at = CURRENT_TIMESTAMP,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = $1
+    `,
+    [notificationId]
+  );
+
+  return {
+    success: true,
+    sent: 0,
+    notificationId,
+    message:
+      'Published to notification center; no active push devices',
+  };
+}
 
     // ------------------------------------
     // PARSE DATA
