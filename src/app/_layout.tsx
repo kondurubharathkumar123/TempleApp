@@ -1,9 +1,16 @@
+
 import {
   Stack,
   router,
   useSegments,
   useRootNavigationState,
 } from 'expo-router';
+
+import '@/localization/i18n';
+
+import {
+  loadSavedLanguage,
+} from '@/localization/i18n';
 
 import * as SplashScreen from 'expo-splash-screen';
 
@@ -39,6 +46,67 @@ export default function RootLayout() {
 
 
   // ========================================
+  // LANGUAGE INITIALIZATION
+  // ========================================
+
+  const [languageChecking, setLanguageChecking] =
+    useState(true);
+
+
+  useEffect(() => {
+
+    let mounted = true;
+
+
+    const initializeLanguage =
+      async () => {
+
+        try {
+
+          // --------------------------------
+          // LOAD SAVED USER LANGUAGE
+          // --------------------------------
+
+          await loadSavedLanguage();
+
+
+          console.log(
+            'App language initialized successfully.'
+          );
+
+        } catch (error) {
+
+          console.error(
+            'Language initialization failed:',
+            error
+          );
+
+        } finally {
+
+          if (mounted) {
+
+            setLanguageChecking(false);
+
+          }
+
+        }
+
+      };
+
+
+    initializeLanguage();
+
+
+    return () => {
+
+      mounted = false;
+
+    };
+
+  }, []);
+
+
+  // ========================================
   // AUTHENTICATION CHECK
   // ========================================
 
@@ -68,8 +136,9 @@ export default function RootLayout() {
           // CHECK EXPO GO
           // --------------------------------
 
-         const isExpoGo =
-  Constants.appOwnership === 'expo';
+          const isExpoGo =
+            Constants.appOwnership === 'expo';
+
 
           if (isExpoGo) {
 
@@ -125,17 +194,28 @@ export default function RootLayout() {
     let cleanup:
       (() => void) | undefined;
 
+    let cancelled = false;
+
 
     initializeNotifications()
       .then((cleanupFunction) => {
 
-        cleanup =
-          cleanupFunction;
+        if (cancelled) {
+
+          cleanupFunction?.();
+
+          return;
+
+        }
+
+        cleanup = cleanupFunction;
 
       });
 
 
     return () => {
+
+      cancelled = true;
 
       cleanup?.();
 
@@ -275,10 +355,10 @@ export default function RootLayout() {
 
 
   // ========================================
-  // AUTH CHECK LOADING
+  // AUTH AND LANGUAGE CHECK LOADING
   // ========================================
 
-  if (authChecking) {
+  if (authChecking || languageChecking) {
 
     return (
       <>
@@ -314,9 +394,10 @@ export default function RootLayout() {
         <Stack.Screen
           name="register"
         />
+
         <Stack.Screen
-  name="forgot-password"
-/>
+          name="forgot-password"
+        />
 
 
         {/* Main Application */}
@@ -442,6 +523,11 @@ export default function RootLayout() {
         <Stack.Screen
           name="policies"
         />
+        {/* Language Settings */}
+
+<Stack.Screen
+  name="language-settings"
+/>
 
       </Stack>
 

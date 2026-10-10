@@ -1,0 +1,53 @@
+
+{
+    
+  "darshan": {
+    "templeServices": "Temple Services",
+    "title": "Darshan",
+    "subtitle": "Plan your visit and receive divine blessings",
+    "today": "Today's Darshan",
+    "loading": "Loading Darshan slots...",
+    "loadingShort": "Loading...",
+    "loadingUpcoming": "Loading upcoming Darshans...",
+    "loadError": "Failed to load Darshan slots",
+    "retry": "Retry",
+    "noSlots": "No Darshan slots available",
+    "checkLater": "Please check again later.",
+    "descriptionFallback": "Darshan available at the temple.",
+    "capacity": "Capacity: {{count}}",
+    "viewAll": "View All Darshans",
+    "refreshAll": "Refresh All Darshans",
+    "all": "All Darshans",
+    "upcoming": "Upcoming Darshans",
+    "noUpcoming": "No Upcoming Darshans",
+    "upcomingLater": "Please check again later for future darshan timings.",
+    "refreshUpcoming": "Refresh Upcoming Darshans",
+    "special": "Special Darshan",
+    "specialBooking": "Special Darshan Booking",
+    "specialDescription": "Reserve your Darshan slot in advance and enjoy a convenient temple visit.",
+    "book": "Book Darshan",
+    "guidelines": "Temple Guidelines",
+    "guideline1": "Please arrive 15 minutes before your slot.",
+    "guideline2": "Maintain silence and follow temple instructions.",
+    "guideline3": "Please follow the temple dress guidelines.",
+    "guideline4": "Keep your booking confirmation ready.",
+    "am": "AM",
+    "pm": "PM"
+  },
+  "events": {
+    "community": "Temple Community",
+    "title": "Events",
+    "subtitle": "Join us in devotion, celebrations and special occasions",
+    "loading": "Loading events...",
+    "loadError": "Failed to load events",
+    "retry": "Retry",
+    "noEvents": "No upcoming events.",
+    "featured": "Featured Event",
+    "upcoming": "Upcoming Events",
+    "noMore": "No more upcoming events.",
+    "descriptionFallback": "Join us for this special temple event.",
+    "timeNotSpecified": "Time not specified",
+    "refresh": "Refresh Events",
+    "date": "DATE"
+  }
+}

@@ -25,7 +25,8 @@ import darshanVideosRoutes from './routes/darshanVideos';
 import notificationRoutes from './routes/notificationRoutes';
 import announcementRoutes from './routes/announcementRoutes';
 import adminGalleryAlbumRoutes from './routes/adminGalleryAlbumRoutes';
-
+import dharmaRoutes from './routes/dharmaRoutes';
+import adminDharmaRoutes from './routes/adminDharmaRoutes';
 import {
   processScheduledNotifications,
 } from './services/notificationScheduler';
@@ -76,6 +77,15 @@ app.use('/api/room-bookings', roomBookingRoutes);
 app.use('/api/buildings', buildingRoutes);
 app.use('/api/service-bookings', serviceBookingRoutes);
 app.use('/api/auth', authRoutes);
+// ========================================
+// DHARMA SANDEHAM ROUTES
+// ========================================
+
+app.use('/api/dharma', dharmaRoutes);
+// Dharma Sandeham administration
+app.use('/api/admin/dharma', adminDharmaRoutes);
+
+
 app.use('/api/notifications', notificationRoutes);
 
 app.use(

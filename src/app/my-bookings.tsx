@@ -981,23 +981,19 @@ export default function BookingsScreen() {
 
         {/* Book Room */}
 
-        <TouchableOpacity
-          style={
-            styles.secondaryButton
-          }
-          onPress={() =>
-            router.push('/rooms')
-          }
-          activeOpacity={0.8}
-        >
-          <Text
-            style={
-              styles.secondaryButtonText
-            }
-          >
-            Book a Room
-          </Text>
-        </TouchableOpacity>
+      
+{/* Book Room */}
+
+<TouchableOpacity
+  style={styles.secondaryButton}
+  onPress={() => router.push('/room-booking')}
+  activeOpacity={0.8}
+>
+  <Text style={styles.secondaryButtonText}>
+    Book a Room
+  </Text>
+</TouchableOpacity>
+
 
         {/* Home */}
 

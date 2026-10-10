@@ -1,4 +1,9 @@
-import React, { useEffect, useState } from 'react';
+
+import React, {
+  useEffect,
+  useState,
+} from 'react';
+
 import {
   Image,
   ScrollView,
@@ -7,10 +12,25 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { router, useLocalSearchParams } from 'expo-router';
+
+import {
+  SafeAreaView,
+} from 'react-native-safe-area-context';
+
+import {
+  router,
+  useLocalSearchParams,
+} from 'expo-router';
+
+import {
+  useTranslation,
+} from 'react-i18next';
 
 import { apiRequest } from '@/services/api';
+
+// ========================================
+// TYPES
+// ========================================
 
 type Activity = {
   id: number;
@@ -27,199 +47,361 @@ type Activity = {
   display_order: number;
   is_active: boolean;
 };
-export default function ActivityDetailsScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
 
-  const [activity, setActivity] = useState<Activity | null>(null);
-  const [loading, setLoading] = useState(true);
+// ========================================
+// DATE LOCALES
+// ========================================
+
+const DATE_LOCALES: Record<string, string> = {
+  en: 'en-IN',
+  te: 'te-IN',
+  kn: 'kn-IN',
+  hi: 'hi-IN',
+  ta: 'ta-IN',
+};
+
+// ========================================
+// ACTIVITY DETAILS SCREEN
+// ========================================
+
+export default function ActivityDetailsScreen() {
+
+  const { t, i18n } = useTranslation();
+
+  const { id } =
+    useLocalSearchParams<{ id: string }>();
+
+  const [activity, setActivity] =
+    useState<Activity | null>(null);
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const language =
+    i18n.resolvedLanguage || i18n.language;
+
+  const dateLocale =
+    DATE_LOCALES[language] || 'en-IN';
+
+  // ========================================
+  // LOAD ACTIVITY DETAILS
+  // ========================================
 
   useEffect(() => {
     loadActivity();
   }, [id]);
 
   const loadActivity = async () => {
+
     try {
+
       setLoading(true);
+      setActivity(null);
 
-      const response = await apiRequest(`/activities/${id}`);
+      const response = await apiRequest<{
+        success: boolean;
+        data: Activity;
+      }>(
+        `/activities/${encodeURIComponent(id)}`
+      );
 
-      if (response.success && response.data) {
+      if (
+        response.success &&
+        response.data
+      ) {
         setActivity(response.data);
       }
+
     } catch (error) {
-      console.error('Activity details loading error:', error);
+
+      console.error(
+        'Activity details loading error:',
+        error
+      );
+
     } finally {
+
       setLoading(false);
+
     }
+
   };
 
+  // ========================================
+  // LOADING SCREEN
+  // ========================================
+
   if (loading) {
+
     return (
+
       <SafeAreaView style={styles.container}>
+
         <View style={styles.center}>
-          <Text style={styles.icon}>🙏</Text>
-          <Text style={styles.loadingText}>
-            Loading Activity...
+
+          <Text style={styles.icon}>
+            🙏
           </Text>
+
+          <Text style={styles.loadingText}>
+            {t('activityDetails.loading')}
+          </Text>
+
         </View>
+
       </SafeAreaView>
+
     );
+
   }
 
+  // ========================================
+  // ACTIVITY NOT FOUND
+  // ========================================
+
   if (!activity) {
+
     return (
+
       <SafeAreaView style={styles.container}>
+
         <View style={styles.center}>
-          <Text style={styles.icon}>🙏</Text>
+
+          <Text style={styles.icon}>
+            🙏
+          </Text>
 
           <Text style={styles.notFoundTitle}>
-            Activity Not Found
+            {t('activityDetails.notFound')}
           </Text>
 
           <Text style={styles.notFoundText}>
-            We couldn't find the requested activity.
+            {t('activityDetails.notFoundText')}
           </Text>
 
           <TouchableOpacity
             style={styles.backButton}
             onPress={() => router.back()}
           >
+
             <Text style={styles.backButtonText}>
-              Go Back
+              {t('activityDetails.goBack')}
             </Text>
+
           </TouchableOpacity>
+
         </View>
+
       </SafeAreaView>
+
     );
+
   }
 
-  const formattedDate = activity.activity_date
-    ? new Date(activity.activity_date).toLocaleDateString(
-        'en-IN',
-        {
-          day: '2-digit',
-          month: 'long',
-          year: 'numeric',
-        }
-      )
-    : null;
+  // ========================================
+  // FORMAT DATE
+  // ========================================
+
+  const formattedDate = (() => {
+
+    if (!activity.activity_date) {
+      return null;
+    }
+
+    const date = new Date(
+      activity.activity_date
+    );
+
+    if (Number.isNaN(date.getTime())) {
+      return null;
+    }
+
+    return date.toLocaleDateString(
+      dateLocale,
+      {
+        day: '2-digit',
+        month: 'long',
+        year: 'numeric',
+      }
+    );
+
+  })();
+
+  // ========================================
+  // MAIN SCREEN
+  // ========================================
 
   return (
+
     <SafeAreaView style={styles.container}>
+
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.content}
       >
-        {/* Header */}
+
+        {/* HEADER */}
+
         <View style={styles.header}>
+
           <TouchableOpacity
             style={styles.backIconButton}
             onPress={() => router.back()}
           >
-            <Text style={styles.backIcon}>‹</Text>
+
+            <Text style={styles.backIcon}>
+              ‹
+            </Text>
+
           </TouchableOpacity>
 
           <Text style={styles.headerTitle}>
-            Activity Details
+            {t('activityDetails.title')}
           </Text>
 
           <View style={styles.headerSpacer} />
+
         </View>
 
-        {/* Image */}
+        {/* IMAGE */}
+
         {activity.image_url ? (
+
           <Image
-            source={{ uri: activity.image_url }}
+            source={{
+              uri: activity.image_url,
+            }}
             style={styles.image}
           />
+
         ) : (
+
           <View style={styles.imagePlaceholder}>
-            <Text style={styles.placeholderIcon}>🛕</Text>
+
+            <Text style={styles.placeholderIcon}>
+              🛕
+            </Text>
+
           </View>
+
         )}
 
-        {/* Title */}
+        {/* ACTIVITY TITLE */}
+
         <View style={styles.titleSection}>
+
           <Text style={styles.title}>
             {activity.title}
           </Text>
 
           <View style={styles.divider} />
+
         </View>
 
-        {/* Date */}
+        {/* DATE */}
+
         {formattedDate ? (
+
           <View style={styles.infoCard}>
-            <Text style={styles.infoIcon}>📅</Text>
+
+            <Text style={styles.infoIcon}>
+              📅
+            </Text>
 
             <View style={styles.infoContent}>
+
               <Text style={styles.infoLabel}>
-                DATE
+                {t('activityDetails.date')}
               </Text>
 
               <Text style={styles.infoValue}>
                 {formattedDate}
               </Text>
+
             </View>
+
           </View>
+
         ) : null}
 
-        {/* Location */}
+        {/* LOCATION */}
+
         {activity.location ? (
+
           <View style={styles.infoCard}>
-            <Text style={styles.infoIcon}>📍</Text>
+
+            <Text style={styles.infoIcon}>
+              📍
+            </Text>
 
             <View style={styles.infoContent}>
+
               <Text style={styles.infoLabel}>
-                LOCATION
+                {t('activityDetails.location')}
               </Text>
 
               <Text style={styles.infoValue}>
                 {activity.location}
               </Text>
+
             </View>
+
           </View>
+
         ) : null}
 
-        {/* Description */}
+        {/* DESCRIPTION */}
+
         <View style={styles.sectionCard}>
+
           <Text style={styles.sectionTitle}>
-            About This Activity
+            {t('activityDetails.about')}
           </Text>
 
           <Text style={styles.description}>
             {activity.description ||
-              'Temple activity information will be available soon.'}
+              t('activityDetails.descriptionFallback')}
           </Text>
+
         </View>
 
-        {/* Devotional Message */}
+        {/* DEVOTIONAL MESSAGE */}
+
         <View style={styles.messageCard}>
+
           <Text style={styles.messageIcon}>
             🪔
           </Text>
 
           <Text style={styles.messageText}>
-            May this sacred activity bring peace, devotion
-            and divine blessings to all devotees.
+            {t('activityDetails.blessing')}
           </Text>
+
         </View>
 
-        {/* Back */}
+        {/* BACK TO ACTIVITIES */}
+
         <TouchableOpacity
           style={styles.bottomButton}
           onPress={() => router.back()}
         >
+
           <Text style={styles.bottomButtonText}>
-            Back to Activities
+            {t('activityDetails.backToActivities')}
           </Text>
+
         </TouchableOpacity>
+
       </ScrollView>
+
     </SafeAreaView>
+
   );
+
 }
 
 const styles = StyleSheet.create({
+
   container: {
     flex: 1,
     backgroundColor: '#FFF9F0',
@@ -439,4 +621,5 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '700',
   },
+
 });

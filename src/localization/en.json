@@ -1,0 +1,27 @@
+
+{
+  "common": {
+    "welcome": "Welcome to Hariharipura Temple",
+    "loading": "Loading...",
+    "save": "Save",
+    "cancel": "Cancel",
+    "back": "Back",
+    "language": "Language"
+  },
+  "tabs": {
+    "home": "Home",
+    "deities": "Deities",
+    "pooja": "Pooja",
+    "activities": "Activities",
+    "menu": "Menu"
+  },
+  "features": {
+    "darshan": "Darshan",
+    "events": "Events",
+    "bookings": "My Bookings",
+    "donations": "Donations",
+    "rooms": "Room Booking",
+    "dailyPrayer": "Daily Prayer",
+    "seva": "Seva Registration"
+  }
+}

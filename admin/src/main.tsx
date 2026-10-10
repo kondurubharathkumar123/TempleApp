@@ -12,6 +12,7 @@ import Rooms from './pages/Rooms';
 import Users from './pages/Users';
 import DarshanVideos from './pages/DarshanVideos';
 import Announcements from './pages/Announcements';
+import DharmaSandeham from './pages/DharmaSandeham';
 
 import './styles.css';
 
@@ -76,6 +77,7 @@ const nav = [
   ['bookings', 'Bookings'],
   ['rooms', 'Rooms'],
   ['announcements', 'Announcements'],
+  ['dharma-sandeham', 'Dharma Sandeham'],
 ];
 
 function Login({
@@ -2131,6 +2133,9 @@ function App() {
       {page === 'events' && (
         <Events />
       )}
+      {page === 'dharma-sandeham' && (
+  <DharmaSandeham />
+)}
 
       {page === 'darshan' && (
         <Darshan />

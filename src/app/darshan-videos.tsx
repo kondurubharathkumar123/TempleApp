@@ -1,4 +1,9 @@
-import React, { useEffect, useState } from 'react';
+
+import React, {
+  useEffect,
+  useState,
+} from 'react';
+
 import {
   ActivityIndicator,
   FlatList,
@@ -10,7 +15,12 @@ import {
   View,
 } from 'react-native';
 
-import { apiRequest, API_BASE_URL } from '@/services/api';
+import { useTranslation } from 'react-i18next';
+
+import {
+  apiRequest,
+  API_BASE_URL,
+} from '@/services/api';
 
 type DarshanVideo = {
   id: number;
@@ -23,35 +33,60 @@ type DarshanVideo = {
 };
 
 export default function DarshanVideosScreen() {
-  const [videos, setVideos] = useState<DarshanVideo[]>([]);
-  const [loading, setLoading] = useState(true);
+
+  const { t } = useTranslation();
+
+  const [videos, setVideos] =
+    useState<DarshanVideo[]>([]);
+
+  const [loading, setLoading] =
+    useState(true);
 
   useEffect(() => {
     loadVideos();
   }, []);
 
   const loadVideos = async () => {
+
     try {
+
+      setLoading(true);
+
       const response = await apiRequest<{
         success: boolean;
         data: DarshanVideo[];
       }>('/darshan-videos');
 
-      if (response.success && Array.isArray(response.data)) {
+      if (
+        response.success &&
+        Array.isArray(response.data)
+      ) {
         setVideos(response.data);
       } else {
         setVideos([]);
       }
+
     } catch (error) {
-      console.error('Darshan Videos error:', error);
+
+      console.error(
+        'Darshan Videos error:',
+        error
+      );
+
       setVideos([]);
+
     } finally {
+
       setLoading(false);
+
     }
+
   };
 
   const getYoutubeThumbnail = (url: string) => {
+
     try {
+
       const match = url.match(
         /(?:youtube\.com\/(?:watch\?v=|live\/|shorts\/)|youtu\.be\/)([^&?/]+)/i
       );
@@ -59,129 +94,226 @@ export default function DarshanVideosScreen() {
       if (match?.[1]) {
         return `https://img.youtube.com/vi/${match[1]}/hqdefault.jpg`;
       }
+
     } catch (error) {
-      console.error('YouTube thumbnail error:', error);
+
+      console.error(
+        'YouTube thumbnail error:',
+        error
+      );
+
     }
 
     return '';
+
   };
 
   const getThumbnail = (video: DarshanVideo) => {
+
     if (video.thumbnail_url) {
-      if (video.thumbnail_url.startsWith('http')) {
+
+      if (
+        video.thumbnail_url.startsWith('http')
+      ) {
         return video.thumbnail_url;
       }
 
       return `${API_BASE_URL.replace(/\/api\/?$/, '')}${
         video.thumbnail_url.startsWith('/') ? '' : '/'
       }${video.thumbnail_url}`;
+
     }
 
     return getYoutubeThumbnail(video.url);
+
   };
 
   const openVideo = async (url: string) => {
+
     try {
+
       await Linking.openURL(url);
+
     } catch (error) {
-      console.error('Unable to open YouTube video:', error);
+
+      console.error(
+        'Unable to open YouTube video:',
+        error
+      );
+
     }
+
   };
 
-  const renderVideo = ({ item }: { item: DarshanVideo }) => {
+  const renderVideo = ({
+    item,
+  }: {
+    item: DarshanVideo;
+  }) => {
+
     const thumbnail = getThumbnail(item);
 
     return (
+
       <TouchableOpacity
         style={styles.card}
         activeOpacity={0.9}
         onPress={() => openVideo(item.url)}
       >
+
         <View style={styles.imageContainer}>
+
           {thumbnail ? (
+
             <Image
               source={{ uri: thumbnail }}
               style={styles.thumbnail}
               resizeMode="cover"
             />
+
           ) : (
+
             <View style={styles.noImage}>
-              <Text style={styles.noImageText}>YouTube</Text>
+
+              <Text style={styles.noImageText}>
+                YouTube
+              </Text>
+
             </View>
+
           )}
 
           <View
             style={[
               styles.label,
-              item.label === 'live' && styles.liveLabel,
+              item.label === 'live' &&
+                styles.liveLabel,
             ]}
           >
+
             <Text style={styles.labelText}>
-              {item.label === 'live' ? 'LIVE' : 'WATCH'}
+              {item.label === 'live'
+                ? t('darshanVideos.live')
+                : t('darshanVideos.watch')}
             </Text>
+
           </View>
 
           <View style={styles.playButton}>
-            <Text style={styles.playIcon}>▶</Text>
+
+            <Text style={styles.playIcon}>
+              ▶
+            </Text>
+
           </View>
+
         </View>
 
         <View style={styles.content}>
-          <Text style={styles.title} numberOfLines={2}>
+
+          <Text
+            style={styles.title}
+            numberOfLines={2}
+          >
             {item.title}
           </Text>
 
           {item.description ? (
-            <Text style={styles.description} numberOfLines={3}>
+
+            <Text
+              style={styles.description}
+              numberOfLines={3}
+            >
               {item.description}
             </Text>
+
           ) : null}
 
-          <Text style={styles.watchNow}>Watch now →</Text>
+          <Text style={styles.watchNow}>
+            {t('darshanVideos.watchNow')} →
+          </Text>
+
         </View>
+
       </TouchableOpacity>
+
     );
+
   };
 
   if (loading) {
+
     return (
+
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#6B1720" />
-        <Text style={styles.loadingText}>Loading Darshan Videos...</Text>
+
+        <ActivityIndicator
+          size="large"
+          color="#6B1720"
+        />
+
+        <Text style={styles.loadingText}>
+          {t('darshanVideos.loading')}
+        </Text>
+
       </View>
+
     );
+
   }
 
   return (
+
     <View style={styles.container}>
+
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Darshan Videos</Text>
-        <Text style={styles.headerSubtitle}>
-          Watch the latest temple darshan videos
+
+        <Text style={styles.headerTitle}>
+          {t('darshanVideos.title')}
         </Text>
+
+        <Text style={styles.headerSubtitle}>
+          {t('darshanVideos.subtitle')}
+        </Text>
+
       </View>
 
       {videos.length === 0 ? (
+
         <View style={styles.empty}>
-          <Text style={styles.emptyTitle}>No videos available</Text>
-          <Text style={styles.emptyText}>
-            Darshan videos will appear here when they are added.
+
+          <Text style={styles.emptyTitle}>
+            {t('darshanVideos.emptyTitle')}
           </Text>
+
+          <Text style={styles.emptyText}>
+            {t('darshanVideos.emptyText')}
+          </Text>
+
         </View>
+
       ) : (
+
         <FlatList
           data={videos}
-          keyExtractor={(item) => String(item.id)}
+          keyExtractor={(item) =>
+            String(item.id)
+          }
           renderItem={renderVideo}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
         />
+
       )}
+
     </View>
+
   );
+
 }
 
 const styles = StyleSheet.create({
+
   container: {
     flex: 1,
     backgroundColor: '#FFFDF8',
@@ -277,7 +409,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  
+
   playIcon: {
     color: '#FFFFFF',
     fontSize: 21,
@@ -333,6 +465,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '800',
     color: '#6B1720',
+    textAlign: 'center',
   },
 
   emptyText: {
@@ -342,4 +475,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
   },
+
 });

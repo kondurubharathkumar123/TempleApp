@@ -1,0 +1,33 @@
+{
+  "deities": {
+    "blessings": "Divine Blessings",
+    "title": "Deities 🙏",
+    "subtitle": "Explore the divine forms worshipped at our temple.",
+    "bannerTitle": "Discover the Divine",
+    "bannerText": "Learn about the deities, their significance and seek their blessings through devotion and prayer.",
+    "sectionTitle": "Temple Deities",
+    "loading": "Loading Deities...",
+    "loadingDescription": "Please wait while we load the temple deities.",
+    "viewDetails": "View Details",
+    "blessingNote": "May the divine blessings of the deities bring peace, strength and happiness to all devotees.",
+    "searchPlaceholder": "Search deity",
+    "descriptionFallback": "Discover the divine significance of this deity.",
+    "noSearchResult": "No Deity Found",
+    "noDeities": "No Deities Available",
+    "tryAnother": "Try searching with another deity name.",
+    "noActive": "No active temple deities are available right now.",
+    "loadingDetails": "Loading deity details...",
+    "notFound": "Deity Not Found",
+    "goBack": "Go Back",
+    "detailsTitle": "Deity Details",
+    "divinePresence": "Divine Presence • Temple Deity",
+    "about": "About",
+    "significance": "Spiritual Significance",
+    "devotional": "Devotional Practice",
+    "backToDeities": "Back to Deities",
+    "loadFailed": "Failed to load deity details",
+    "cannotFind": "We could not find the requested deity.",
+    "infoUnavailable": "Information about this deity is not available at the moment.",
+    "prayer": "May the divine blessings of {{name}} bring peace, strength and happiness to all devotees."
+  }
+}

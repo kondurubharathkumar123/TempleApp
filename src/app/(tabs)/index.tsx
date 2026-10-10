@@ -23,6 +23,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 
 const COLORS = {
   bg: '#FFFCF7',
@@ -128,12 +129,12 @@ const GURU_DATA = [
 ];
 
 const QUICK_ACTIONS = [
-  { icon: '🙏', title: 'Darshan', route: '/darshan' },
-  { icon: '📅', title: 'Events', route: '/events' },
-  { icon: '🎫', title: 'Bookings', route: '/bookings' },
-  { icon: '💰', title: 'Donations', route: '/donations' },
-  { icon: '🛕', title: 'Deities', route: '/deities' },
-  { icon: '🪔', title: 'Seva Registration', route: '/seva-registration' },
+  { icon: '🙏', titleKey: 'home.quickDarshan', route: '/darshan' },
+  { icon: '📅', titleKey: 'home.quickEvents', route: '/events' },
+  { icon: '🎫', titleKey: 'home.quickBookings', route: '/bookings' },
+  { icon: '💰', titleKey: 'home.quickDonations', route: '/donations' },
+  { icon: '🛕', titleKey: 'home.quickDeities', route: '/deities' },
+  { icon: '🪔', titleKey: 'home.quickSeva', route: '/seva-registration' },
 ];
 
 type DarshanVideo = {
@@ -147,6 +148,7 @@ type DarshanVideo = {
 };
 
 export default function HomeScreen() {
+  const { t, i18n } = useTranslation();
   useFocusEffect(
   useCallback(() => {
     loadUnreadNotificationCount();
@@ -411,12 +413,12 @@ useEffect(() => {
           {/* Header */}
           <View style={styles.header}>
             <View style={styles.headerTextWrap}>
-              <Text style={styles.greeting}>WELCOME, DEVOTEE</Text>
+              <Text style={styles.greeting}>{t('home.greeting')}</Text>
               <View style={styles.titleRow}>
-                <Text style={styles.title}>Divyakshetra</Text>
+                <Text style={styles.title}>{t('home.brand')}</Text>
                 <View style={styles.titleDot} />
               </View>
-              <Text style={styles.subtitle}>Hariharapura</Text>
+              <Text style={styles.subtitle}>{t('home.place')}</Text>
             </View>
 
             <AnimatedTouchable
@@ -492,23 +494,22 @@ useEffect(() => {
               </Animated.Text>
 
               <Text style={styles.bannerEyebrow}>
-                DIVINE • DEVOTION • SERVICE
+                {t('home.heroEyebrow')}
               </Text>
 
               <Text style={styles.bannerTitle}>
-                A Sacred Journey{'\n'}Awaits You
+                {t('home.heroTitle')}
               </Text>
 
               <Text style={styles.bannerText}>
-                Welcome to Divyakshetra Hariharapura, a sacred spiritual
-                destination on the banks of the Uttaravahini Tunga River.
-              </Text>
+                 {t('home.heroDescription')}
+               </Text>
 
               <AnimatedTouchable
                 style={styles.bannerButton}
                 onPress={() => router.push('/darshan')}
               >
-                <Text style={styles.bannerButtonText}>Explore Temple</Text>
+                <Text style={styles.bannerButtonText}>{t('home.exploreTemple')}</Text>
                 <Text style={styles.bannerButtonArrow}>→</Text>
               </AnimatedTouchable>
             </View>
@@ -522,35 +523,71 @@ useEffect(() => {
 
           {/* Quick Access */}
           <SectionHeading
-            title="Quick Access"
-            subtitle="Everything you need for your sacred visit"
+            title={t('home.quickAccess')}
+            subtitle={t('home.quickSubtitle')}
           />
 
           <View style={styles.grid}>
             {QUICK_ACTIONS.map((item, index) => (
               <AnimatedQuickAction
-                key={item.title}
+                key={item.titleKey}
                 icon={item.icon}
-                title={item.title}
+                title={t(item.titleKey)}
                 index={index}
                 onPress={() => router.push(item.route as any)}
               />
             ))}
-          </View>
+                   </View>
+
+          {/* Dharma Sandeham */}
+          <TouchableOpacity
+            style={styles.dharmaCard}
+            activeOpacity={0.85}
+            onPress={() => router.push('/dharma' as any)}
+          >
+            <View style={styles.dharmaIconCircle}>
+              <Text style={styles.dharmaIcon}>ॐ</Text>
+            </View>
+
+            <View style={styles.dharmaContent}>
+              <Text style={styles.dharmaTag}>
+                DEVOTEE COMMUNITY
+              </Text>
+
+              <Text style={styles.dharmaTitle}>
+                Dharma Sandeham
+              </Text>
+
+              <Text style={styles.dharmaDescription}>
+                Ask questions about temple traditions,
+                pooja rituals and spiritual practices.
+                Share knowledge with fellow devotees.
+              </Text>
+
+              <View style={styles.dharmaAction}>
+                <Text style={styles.dharmaActionText}>
+                  Explore Questions
+                </Text>
+                <Text style={styles.dharmaActionArrow}>
+                  →
+                </Text>
+              </View>
+            </View>
+          </TouchableOpacity>
 
           {/* Watch & Experience */}
           <View style={styles.videoSectionHeader}>
             <View>
-              <Text style={styles.videoEyebrow}>WATCH & EXPERIENCE</Text>
-              <Text style={styles.videoSectionTitle}>Darshan Videos</Text>
-              <Text style={styles.videoSectionSubtitle}>Feel connected to the divine, wherever you are</Text>
+              <Text style={styles.videoEyebrow}>{t('home.watchExperience')}</Text>
+              <Text style={styles.videoSectionTitle}>{t('home.darshanVideos')}</Text>
+              <Text style={styles.videoSectionSubtitle}>{t('home.videoSubtitle')}</Text>
             </View>
             <TouchableOpacity
             onPress={() => router.push('/darshan-videos')}
               activeOpacity={0.7}
               style={styles.videoViewAll}
             >
-              <Text style={styles.viewAll}>View All</Text>
+              <Text style={styles.viewAll}>{t('home.viewAll')}</Text>
               <Text style={styles.viewAllArrow}>→</Text>
             </TouchableOpacity>
           </View>
@@ -597,7 +634,7 @@ useEffect(() => {
                     {video.label === 'live' ? (
                       <View style={styles.videoLiveBadge}>
                         <View style={styles.videoLiveDot} />
-                        <Text style={styles.videoLiveText}>LIVE</Text>
+                        <Text style={styles.videoLiveText}>{t('home.live')}</Text>
                       </View>
                     ) : null}
 
@@ -605,13 +642,13 @@ useEffect(() => {
 
                   <View style={styles.videoCardBody}>
                     <Text style={styles.videoCardLabel}>
-                      {video.label === 'live' ? 'LIVE' : 'WATCH'}
+                      {video.label === 'live' ? t('home.live') : t('home.watch')}
                     </Text>
                     <Text style={styles.videoCardTitle} numberOfLines={1}>{video.title}</Text>
                     <Text style={styles.videoCardDescription} numberOfLines={2}>
                       {video.description}
                     </Text>
-                    <Text style={styles.videoWatchNow}>Watch now  →</Text>
+                    <Text style={styles.videoWatchNow}>{t('home.watchNow')}</Text>
                   </View>
                 </TouchableOpacity>
               );
@@ -620,8 +657,8 @@ useEffect(() => {
 
           {/* About Sreemath */}
           <SectionHeading
-            title="About Sreemath"
-            subtitle="Discover our spiritual heritage"
+            title={t('home.aboutSreemath')}
+            subtitle={t('home.heritageSubtitle')}
           />
 
           <AnimatedTouchable
@@ -638,17 +675,17 @@ useEffect(() => {
             <View style={styles.aboutImageShade} />
             <View style={styles.aboutOverlay}>
               <View style={styles.imageBadge}>
-                <Text style={styles.imageBadgeText}>SACRED HERITAGE</Text>
+                <Text style={styles.imageBadgeText}>{t('home.sacredHeritage')}</Text>
               </View>
 
-              <Text style={styles.aboutLabel}>OUR SPIRITUAL HERITAGE</Text>
-              <Text style={styles.aboutTitle}>Sreemath</Text>
+              <Text style={styles.aboutLabel}>{t('home.ourHeritage')}</Text>
+              <Text style={styles.aboutTitle}>{t('home.sreemath')}</Text>
               <Text style={styles.aboutText}>
-               Sri Adi Shankaracharya Sharada LakshmiNarasimha Peetam
+                {t('home.peetam')}
               </Text>
 
               <View style={styles.readMore}>
-                <Text style={styles.readMoreText}>Read Full Story</Text>
+                <Text style={styles.readMoreText}>{t('home.readFullStory')}</Text>
                 <Text style={styles.readMoreArrow}>→</Text>
               </View>
             </View>
@@ -656,8 +693,8 @@ useEffect(() => {
 
           {/* Agasthya */}
           <SectionHeading
-            title="Agasthya"
-            subtitle="Wisdom that inspires the soul"
+            title={t('home.agasthya')}
+            subtitle={t('home.agasthyaSubtitle')}
           />
 
           <AnimatedTouchable
@@ -670,17 +707,16 @@ useEffect(() => {
             </View>
 
             <View style={styles.agasthyaContent}>
-              <Text style={styles.cardEyebrow}>DEVOTIONAL STORIES</Text>
+              <Text style={styles.cardEyebrow}>{t('home.devotionalStories')}</Text>
               <Text style={styles.agasthyaTitle}>
-                Stories, wisdom & spiritual content
+                {t('home.storiesTitle')}
               </Text>
               <Text style={styles.agasthyaText}>
-                Explore inspiring devotional stories, teachings and timeless
-                spiritual reflections.
-              </Text>
+                 {t('home.storiesDescription')}
+               </Text>
 
               <View style={styles.smallLink}>
-                <Text style={styles.smallLinkText}>Explore Agasthya</Text>
+                <Text style={styles.smallLinkText}>{t('home.exploreAgasthya')}</Text>
                 <Text style={styles.smallLinkArrow}>›</Text>
               </View>
             </View>
@@ -689,8 +725,8 @@ useEffect(() => {
           {/* Guru Parampara */}
           <View style={styles.sectionHeader}>
             <View>
-              <Text style={styles.sectionTitle}>Guru Parampara</Text>
-              <Text style={styles.sectionMini}>THE SACRED LINEAGE</Text>
+              <Text style={styles.sectionTitle}>{t('home.guruParampara')}</Text>
+              <Text style={styles.sectionMini}>{t('home.sacredLineage')}</Text>
             </View>
 
             <TouchableOpacity
@@ -698,14 +734,14 @@ useEffect(() => {
               activeOpacity={0.7}
               style={styles.viewAllButton}
             >
-              <Text style={styles.viewAll}>View All</Text>
+              <Text style={styles.viewAll}>{t('home.viewAll')}</Text>
               <Text style={styles.viewAllArrow}>→</Text>
             </TouchableOpacity>
           </View>
 
           <Text style={styles.sectionIntro}>
-            Walk through the sacred spiritual lineage and learn about the Gurus.
-          </Text>
+                {t('home.guruIntro')}
+              </Text>
 
           <ScrollView
             horizontal
@@ -723,25 +759,25 @@ useEffect(() => {
           </ScrollView>
 
           {/* Room Booking */}
-          <AnimatedTouchable
-            style={styles.roomBookingCard}
-            onPress={() => router.push('/rooms')}
-          >
+         {/* Room Booking */}
+<AnimatedTouchable
+  style={styles.roomBookingCard}
+  onPress={() => router.push('/room-booking')}
+>
             <View style={styles.roomGlow} />
             <View style={styles.roomBookingContent}>
               <View style={styles.stayBadge}>
-                <Text style={styles.stayBadgeText}>TEMPLE STAY</Text>
+                <Text style={styles.stayBadgeText}>{t('home.stayBadge')}</Text>
               </View>
 
-              <Text style={styles.roomBookingTitle}>Room Booking</Text>
+              <Text style={styles.roomBookingTitle}>{t('home.roomBooking')}</Text>
 
               <Text style={styles.roomBookingText}>
-                Stay close to the divine. Book a comfortable room for your
-                temple visit.
-              </Text>
+                 {t('home.roomDescription')}
+               </Text>
 
               <View style={styles.roomBookingButton}>
-                <Text style={styles.roomBookingButtonText}>Book a Room</Text>
+                <Text style={styles.roomBookingButtonText}>{t('home.bookRoom')}</Text>
                 <Text style={styles.roomBookingButtonArrow}>→</Text>
               </View>
             </View>
@@ -754,8 +790,8 @@ useEffect(() => {
           {/* Upcoming Events */}
           <View style={styles.sectionHeader}>
             <View>
-              <Text style={styles.sectionTitle}>Upcoming Events</Text>
-              <Text style={styles.sectionMini}>JOIN THE CELEBRATIONS</Text>
+              <Text style={styles.sectionTitle}>{t('home.upcomingEvents')}</Text>
+              <Text style={styles.sectionMini}>{t('home.joinCelebrations')}</Text>
             </View>
 
             <TouchableOpacity
@@ -763,7 +799,7 @@ useEffect(() => {
               activeOpacity={0.7}
               style={styles.viewAllButton}
             >
-              <Text style={styles.viewAll}>View All</Text>
+              <Text style={styles.viewAll}>{t('home.viewAll')}</Text>
               <Text style={styles.viewAllArrow}>→</Text>
             </TouchableOpacity>
           </View>
@@ -778,16 +814,16 @@ useEffect(() => {
                 date={
                   event.event_date
                     ? new Date(event.event_date)
-                        .toLocaleDateString('en-US', {
+                        .toLocaleDateString(({ en: 'en-US', te: 'te-IN', kn: 'kn-IN', hi: 'hi-IN', ta: 'ta-IN' } as Record<string, string>)[i18n.language] || 'en-US', {
                           month: 'short',
                           day: '2-digit',
                         })
                         .toUpperCase()
-                    : 'DATE'
+                    : t('home.date')
                 }
                 title={event.title}
                 description={
-                  event.description || 'Join us for this temple event.'
+                  event.description || t('home.eventFallback')
                 }
                 onPress={() => router.push('/events')}
               />
@@ -795,17 +831,17 @@ useEffect(() => {
           ) : (
             <View style={styles.emptyEventCard}>
               <Text style={styles.emptyEventIcon}>🪔</Text>
-              <Text style={styles.emptyEventTitle}>No upcoming events</Text>
+              <Text style={styles.emptyEventTitle}>{t('home.noEvents')}</Text>
               <Text style={styles.emptyEventText}>
-                New temple celebrations will appear here.
+                {t('home.noEventsDescription')}
               </Text>
             </View>
           )}
 
           {/* Devotional */}
           <SectionHeading
-            title="Devotional"
-            subtitle="Begin your day with divine remembrance"
+            title={t('home.devotional')}
+            subtitle={t('home.devotionalSubtitle')}
           />
 
           <AnimatedTouchable
@@ -817,10 +853,10 @@ useEffect(() => {
             </View>
 
             <View style={styles.devotionalContent}>
-              <Text style={styles.devotionalTag}>DAILY PRACTICE</Text>
-              <Text style={styles.devotionalTitle}>Daily Prayer</Text>
+              <Text style={styles.devotionalTag}>{t('home.dailyPractice')}</Text>
+              <Text style={styles.devotionalTitle}>{t('home.dailyPrayer')}</Text>
               <Text style={styles.devotionalText}>
-                Start your day with prayer, peace and blessings.
+                {t('home.dailyDescription')}
               </Text>
             </View>
 
@@ -831,8 +867,8 @@ useEffect(() => {
 
           {/* About Us */}
           <SectionHeading
-            title="About Us"
-            subtitle="Know the sacred place behind the experience"
+            title={t('home.aboutUs')}
+            subtitle={t('home.aboutUsSubtitle')}
           />
 
           <AnimatedTouchable
@@ -858,34 +894,25 @@ useEffect(() => {
               </Text>
 
               <Text style={styles.aboutUsImageCaptionTitle}>
-                A Sacred Dharmapeetam
+                {t('home.dharmapeetam')}
               </Text>
 
               <View style={styles.aboutUsDivider} />
 
               <Text style={styles.aboutUsText}>
-                Sri Adi Shankaracharya Sharada Lakshminarasimha Peetam, located
-                in the ancient puranic Divyakshetra of Hariharapura, Chikmagalur
-                District, Karnataka, is a revered Dharmapeetam directly
-                established by Jagadguru Sri Adi Shankaracharya. This ancient
-                Dharmapeetam venerates Sri LakshmiNarasimha Swamy and Sri
-                Sharada Parameswari as its presiding deities.
-              </Text>
+                 {t('home.aboutParagraph1')}
+               </Text>
 
               <Text style={styles.aboutUsText}>
-                With a history dating back to its establishment by Sri Adi
-                Shankaracharya, the Dharmapeetam proudly maintains an unbroken
-                and distinguished lineage of Jagadgurus.
-              </Text>
+                 {t('home.aboutParagraph2')}
+               </Text>
 
               <Text style={styles.aboutUsText}>
-                Divyakshetra Hariharapura, a sacred land situated on the banks
-                of the river Tunga, holds profound significance in Vedic
-                literature.
-              </Text>
+                 {t('home.aboutParagraph3')}
+               </Text>
 
               <View style={styles.aboutUsReadMore}>
-                <Text style={styles.aboutUsReadMoreText}>Read More</Text>
+                <Text style={styles.aboutUsReadMoreText}>{t('home.readMore')}</Text>
                 <Text style={styles.aboutUsReadMoreArrow}>→</Text>
               </View>
             </View>
@@ -893,39 +920,39 @@ useEffect(() => {
 
           {/* Temple Services */}
           <SectionHeading
-            title="Temple Services"
-            subtitle="Everything for a peaceful pilgrimage"
+            title={t('home.templeServices')}
+            subtitle={t('home.servicesSubtitle')}
           />
 
           <View style={styles.serviceCard}>
             <ServiceRow
               icon="🛕"
-              title="Temple Information"
-              subtitle="Know before you visit"
+              title={t('home.templeInformation')}
+              subtitle={t('home.knowBeforeVisit')}
               onPress={() => router.push('/about')}
             />
             <ServiceRow
               icon="📿"
-              title="Pooja Services"
-              subtitle="Sacred rituals and offerings"
+              title={t('home.poojaServices')}
+              subtitle={t('home.sacredRituals')}
               onPress={() => router.push('/pooja')}
             />
             <ServiceRow
               icon="🪔"
-              title="Seva Registration"
-              subtitle="Participate in temple seva"
+              title={t('home.sevaRegistration')}
+              subtitle={t('home.participateSeva')}
               onPress={() => router.push('/seva-registration')}
             />
             <ServiceRow
               icon="📍"
-              title="Temple Location"
-              subtitle="Plan your sacred journey"
+              title={t('home.templeLocation')}
+              subtitle={t('home.planJourney')}
               onPress={() => router.push('/temple-location')}
             />
             <ServiceRow
               icon="☎️"
-              title="Contact Temple"
-              subtitle="Reach the temple team"
+              title={t('home.contactTemple')}
+              subtitle={t('home.reachTeam')}
               onPress={() => router.push('/contact')}
               last
             />
@@ -934,7 +961,7 @@ useEffect(() => {
           <View style={styles.footerBlessing}>
             <View style={styles.footerLine} />
             <Text style={styles.footerOm}>ॐ</Text>
-            <Text style={styles.footerText}>MAY YOUR JOURNEY BE DIVINE</Text>
+            <Text style={styles.footerText}>{t('home.footer')}</Text>
             <Text style={styles.footerSubtext}>हरिः ॐ तत् सत्</Text>
             <View style={styles.footerLine} />
           </View>
@@ -1097,6 +1124,8 @@ function AnimatedGuruCard({
   index: number;
   onPress: () => void;
 }) {
+  const { t } = useTranslation();
+
   const entrance = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -1135,22 +1164,22 @@ function AnimatedGuruCard({
           />
           <View style={styles.guruImageOverlay} />
           <View style={styles.guruImageBadge}>
-            <Text style={styles.guruImageBadgeText}>GURU</Text>
+            <Text style={styles.guruImageBadgeText}>{t('home.guru')}</Text>
           </View>
         </View>
 
         <View style={styles.guruBody}>
-          <Text style={styles.guruTitle}>{guru.title}</Text>
+          <Text style={styles.guruTitle}>{guru.title === 'GURU' ? t('home.guru') : guru.title === 'MAHASWAMIJI' ? t('home.mahaswamiji') : t('home.bhagavatpada')}</Text>
           <Text style={styles.guruName} numberOfLines={3}>{guru.name}</Text>
           <Text style={styles.guruVerse} numberOfLines={3}>
             {guru.verse}
           </Text>
           <Text style={styles.guruTranslation} numberOfLines={3}>
-            “{guru.translation}”
+            “{t('home.guruMeanings.' + guru.id, { defaultValue: guru.translation })}”
           </Text>
 
           <View style={styles.guruReadRow}>
-            <Text style={styles.guruRead}>View Guru Parampara</Text>
+            <Text style={styles.guruRead}>{t('home.viewGuru')}</Text>
             <Text style={styles.guruReadArrow}>→</Text>
           </View>
         </View>
@@ -1172,6 +1201,8 @@ function AnimatedEventCard({
   index: number;
   onPress: () => void;
 }) {
+  const { t } = useTranslation();
+
   const entrance = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -1207,7 +1238,7 @@ function AnimatedEventCard({
         <View style={styles.eventContent}>
           <View style={styles.eventTagRow}>
             <View style={styles.eventTagDot} />
-            <Text style={styles.eventTag}>TEMPLE EVENT</Text>
+            <Text style={styles.eventTag}>{t('home.eventTag')}</Text>
           </View>
           <Text style={styles.eventTitle}>{title}</Text>
           <Text style={styles.eventDescription} numberOfLines={2}>
@@ -1280,12 +1311,84 @@ function ServiceRow({
     </Animated.View>
   );
 }
-
 const styles = StyleSheet.create({
-container: {
-  flex: 1,
-  backgroundColor: '#FFF7E8',
-},
+  container: {
+    flex: 1,
+    backgroundColor: '#FFF7E8',
+  },
+
+  dharmaCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#641B27',
+    borderRadius: 24,
+    padding: 20,
+    marginBottom: 28,
+    borderWidth: 1,
+    borderColor: '#C69A3A',
+    elevation: 6,
+  },
+
+  dharmaIconCircle: {
+    width: 62,
+    height: 62,
+    borderRadius: 31,
+    backgroundColor: '#F8EBD8',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 15,
+    borderWidth: 2,
+    borderColor: '#C69A3A',
+  },
+
+  dharmaIcon: {
+    fontSize: 31,
+    color: '#741B22',
+    fontWeight: '700',
+  },
+
+  dharmaContent: {
+    flex: 1,
+  },
+
+  dharmaTag: {
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 1.5,
+    color: '#F1D58A',
+    marginBottom: 5,
+  },
+
+  dharmaTitle: {
+    fontSize: 21,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    marginBottom: 7,
+  },
+
+  dharmaDescription: {
+    fontSize: 11.5,
+    lineHeight: 18,
+    color: '#F8EBD8',
+    marginBottom: 12,
+  },
+
+  dharmaAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+
+  dharmaActionText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#F1D58A',
+  },
+
+  dharmaActionArrow: {
+    fontSize: 19,
+    color: '#F1D58A',
+    marginLeft: 8,
+  },
 
   content: {
     width: '100%',
@@ -2909,3 +3012,4 @@ notificationBadgeText: {
   lineHeight: 12,
 },
 });
+  

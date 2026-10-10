@@ -1,4 +1,9 @@
-import React, { useEffect, useState } from 'react';
+
+import React, {
+  useEffect,
+  useState,
+} from 'react';
+
 import {
   ActivityIndicator,
   Image,
@@ -8,13 +13,25 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+
+import {
+  SafeAreaView,
+} from 'react-native-safe-area-context';
+
 import {
   router,
   useLocalSearchParams,
 } from 'expo-router';
 
+import {
+  useTranslation,
+} from 'react-i18next';
+
 import { apiRequest } from '@/services/api';
+
+// ========================================
+// TYPES
+// ========================================
 
 type Activity = {
   id: number;
@@ -38,7 +55,26 @@ type ActivitySection = {
   is_active: boolean;
 };
 
+// ========================================
+// LANGUAGE LOCALES
+// ========================================
+
+const DATE_LOCALES: Record<string, string> = {
+  en: 'en-IN',
+  te: 'te-IN',
+  kn: 'kn-IN',
+  hi: 'hi-IN',
+  ta: 'ta-IN',
+};
+
+// ========================================
+// ACTIVITY SECTION SCREEN
+// ========================================
+
 export default function ActivitySectionScreen() {
+
+  const { t, i18n } = useTranslation();
+
   const { id } =
     useLocalSearchParams<{ id: string }>();
 
@@ -48,118 +84,223 @@ export default function ActivitySectionScreen() {
   const [activities, setActivities] =
     useState<Activity[]>([]);
 
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] =
+    useState(true);
+
+  const language = i18n.resolvedLanguage ||
+    i18n.language;
+
+  const dateLocale =
+    DATE_LOCALES[language] || 'en-IN';
+
+  // ========================================
+  // LOAD ACTIVITIES
+  // ========================================
 
   useEffect(() => {
     loadActivities();
   }, [id]);
 
   const loadActivities = async () => {
-    try {
-      setLoading(true);
 
-      const response = await apiRequest(
-        `/activities/section/${id}`
+    try {
+
+      setLoading(true);
+      setSection(null);
+      setActivities([]);
+
+      const response = await apiRequest<{
+        success: boolean;
+        data: {
+          section: ActivitySection;
+          activities: Activity[];
+        };
+      }>(
+        `/activities/section/${encodeURIComponent(id)}`
       );
 
       if (
         response.success &&
         response.data
       ) {
+
         setSection(response.data.section);
+
         setActivities(
-          response.data.activities || []
+          Array.isArray(response.data.activities)
+            ? response.data.activities
+            : []
         );
+
       }
+
     } catch (error) {
+
       console.error(
         'Activity section loading error:',
         error
       );
+
     } finally {
+
       setLoading(false);
+
     }
+
   };
 
+  // ========================================
+  // OPEN ACTIVITY
+  // ========================================
+
   const openActivity = (activityId: number) => {
+
     router.push({
       pathname: '/activities/[id]',
       params: {
         id: String(activityId),
       },
     });
+
   };
 
+  // ========================================
+  // FORMAT DATE
+  // ========================================
+
+  const formatDate = (
+    value: string | null
+  ): string | null => {
+
+    if (!value) {
+      return null;
+    }
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+      return null;
+    }
+
+    return date.toLocaleDateString(
+      dateLocale,
+      {
+        day: '2-digit',
+        month: 'long',
+        year: 'numeric',
+      }
+    );
+
+  };
+
+  // ========================================
+  // LOADING
+  // ========================================
+
   if (loading) {
+
     return (
+
       <SafeAreaView style={styles.container}>
+
         <View style={styles.center}>
+
           <ActivityIndicator
             size="large"
             color="#B66A2C"
           />
 
           <Text style={styles.loadingText}>
-            Loading Activities...
+            {t('activitySection.loading')}
           </Text>
+
         </View>
+
       </SafeAreaView>
+
     );
+
   }
 
+  // ========================================
+  // SECTION NOT FOUND
+  // ========================================
+
   if (!section) {
+
     return (
+
       <SafeAreaView style={styles.container}>
+
         <View style={styles.center}>
+
           <Text style={styles.icon}>
             🙏
           </Text>
 
           <Text style={styles.notFoundTitle}>
-            Section Not Found
+            {t('activitySection.notFound')}
           </Text>
 
           <TouchableOpacity
             style={styles.backButton}
             onPress={() => router.back()}
           >
+
             <Text style={styles.backButtonText}>
-              Go Back
+              {t('activitySection.goBack')}
             </Text>
+
           </TouchableOpacity>
+
         </View>
+
       </SafeAreaView>
+
     );
+
   }
 
+  // ========================================
+  // MAIN CONTENT
+  // ========================================
+
   return (
+
     <SafeAreaView style={styles.container}>
+
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.content}
       >
+
         {/* Back */}
 
         <TouchableOpacity
           onPress={() => router.back()}
           style={styles.backButton}
         >
+
           <Text style={styles.backText}>
-            ‹ Back
+            ‹ {t('activitySection.back')}
           </Text>
+
         </TouchableOpacity>
 
         {/* Section Header */}
 
         <View style={styles.header}>
+
           <View style={styles.iconCircle}>
+
             <Text style={styles.headerIcon}>
               {section.icon || '🙏'}
             </Text>
+
           </View>
 
           <Text style={styles.eyebrow}>
-            TEMPLE ACTIVITIES
+            {t('activitySection.templeActivities')}
           </Text>
 
           <Text style={styles.title}>
@@ -167,157 +308,149 @@ export default function ActivitySectionScreen() {
           </Text>
 
           {section.description ? (
+
             <Text style={styles.subtitle}>
               {section.description}
             </Text>
+
           ) : null}
+
         </View>
 
         {/* Activities */}
 
         {activities.length === 0 ? (
+
           <View style={styles.emptyCard}>
+
             <Text style={styles.emptyIcon}>
               🙏
             </Text>
 
             <Text style={styles.emptyTitle}>
-              No Activities Yet
+              {t('activitySection.emptyTitle')}
             </Text>
 
             <Text style={styles.emptyText}>
-              Activities under this section will
-              be added soon.
+              {t('activitySection.emptyText')}
             </Text>
+
           </View>
+
         ) : (
+
           activities.map(
             (activity, index) => {
+
               const formattedDate =
-                activity.activity_date
-                  ? new Date(
-                      activity.activity_date
-                    ).toLocaleDateString(
-                      'en-IN',
-                      {
-                        day: '2-digit',
-                        month: 'long',
-                        year: 'numeric',
-                      }
-                    )
-                  : null;
+                formatDate(activity.activity_date);
 
               return (
+
                 <TouchableOpacity
                   key={activity.id}
                   style={styles.activityCard}
                   activeOpacity={0.85}
                   onPress={() =>
-                    openActivity(
-                      activity.id
-                    )
+                    openActivity(activity.id)
                   }
                 >
+
                   {activity.image_url ? (
+
                     <Image
                       source={{
                         uri: activity.image_url,
                       }}
-                      style={
-                        styles.activityImage
-                      }
+                      style={styles.activityImage}
                       resizeMode="cover"
                     />
+
                   ) : (
+
                     <View
-                      style={
-                        styles.imagePlaceholder
-                      }
+                      style={styles.imagePlaceholder}
                     >
+
                       <Text
-                        style={
-                          styles.placeholderIcon
-                        }
+                        style={styles.placeholderIcon}
                       >
                         🛕
                       </Text>
+
                     </View>
+
                   )}
 
-                  <View
-                    style={
-                      styles.activityContent
-                    }
-                  >
-                    <Text
-                      style={styles.activityNumber}
-                    >
+                  <View style={styles.activityContent}>
+
+                    <Text style={styles.activityNumber}>
                       {String(index + 1).padStart(
                         2,
                         '0'
                       )}
                     </Text>
 
-                    <Text
-                      style={styles.activityTitle}
-                    >
+                    <Text style={styles.activityTitle}>
                       {activity.title}
                     </Text>
 
                     {activity.description ? (
+
                       <Text
-                        style={
-                          styles.activityDescription
-                        }
+                        style={styles.activityDescription}
                         numberOfLines={4}
                       >
                         {activity.description}
                       </Text>
+
                     ) : null}
 
-                    <View
-                      style={
-                        styles.metaContainer
-                      }
-                    >
+                    <View style={styles.metaContainer}>
+
                       {formattedDate ? (
-                        <Text
-                          style={
-                            styles.metaText
-                          }
-                        >
+
+                        <Text style={styles.metaText}>
                           📅 {formattedDate}
                         </Text>
+
                       ) : null}
 
                       {activity.location ? (
-                        <Text
-                          style={
-                            styles.metaText
-                          }
-                        >
+
+                        <Text style={styles.metaText}>
                           📍 {activity.location}
                         </Text>
+
                       ) : null}
+
                     </View>
 
-                    <Text
-                      style={styles.readMore}
-                    >
-                      View Details ›
+                    <Text style={styles.readMore}>
+                      {t('activitySection.viewDetails')} ›
                     </Text>
+
                   </View>
+
                 </TouchableOpacity>
+
               );
+
             }
           )
+
         )}
+
       </ScrollView>
+
     </SafeAreaView>
+
   );
+
 }
 
 const styles = StyleSheet.create({
+
   container: {
     flex: 1,
     backgroundColor: '#FFF9F0',
@@ -505,4 +638,5 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '700',
   },
+
 });

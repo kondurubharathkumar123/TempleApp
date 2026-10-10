@@ -94,22 +94,19 @@ export default function NotificationsScreen() {
     loadNotifications(false);
   };
 
-  const handleNotificationPress = async (
-    item: NotificationItem
-  ) => {
-    // Already read - no API call required
-    if (item.is_read) {
+const handleNotificationPress = async (
+  item: NotificationItem
+) => {
+  try {
+    const token = await getToken();
+
+    if (!token) {
+      router.replace('/login');
       return;
     }
 
-    try {
-      const token = await getToken();
-
-      if (!token) {
-        router.replace('/login');
-        return;
-      }
-
+    // Mark as read only when currently unread
+    if (!item.is_read) {
       const response = await apiRequest(
         `/notifications/${item.id}/read`,
         {
@@ -125,7 +122,6 @@ export default function NotificationsScreen() {
         );
       }
 
-      // Immediately update UI
       setNotifications((current) =>
         current.map((notification) =>
           notification.id === item.id
@@ -139,19 +135,61 @@ export default function NotificationsScreen() {
             : notification
         )
       );
-    } catch (error: any) {
-      console.error(
-        'Mark notification read error:',
-        error
-      );
-
-      Alert.alert(
-        'Unable to Update',
-        error?.message ||
-          'Please try again.'
-      );
     }
-  };
+
+    // ------------------------------------
+    // NOTIFICATION NAVIGATION
+    // ------------------------------------
+
+    const data = item.data || {};
+
+    switch (data.type) {
+      case 'event':
+        router.push('/events');
+        break;
+
+      case 'deity':
+        if (data.deityId) {
+          router.push(`/deity/${data.deityId}` as any);
+        } else {
+          router.push('/(tabs)/deities');
+        }
+        break;
+
+      case 'gallery':
+        router.push('/gallery');
+        break;
+
+      case 'darshan':
+      case 'darshan_video':
+        router.push('/darshan-videos');
+        break;
+
+      case 'publication':
+        router.push('/publications');
+        break;
+
+      case 'announcement':
+        // No redirect.
+        // User remains on Notification Center.
+        break;
+
+      default:
+        // General/system notifications remain here.
+        break;
+    }
+  } catch (error: any) {
+    console.error(
+      'Notification press error:',
+      error
+    );
+
+    Alert.alert(
+      'Unable to Open Notification',
+      error?.message || 'Please try again.'
+    );
+  }
+};
 
   const handleMarkAllRead = async () => {
     try {

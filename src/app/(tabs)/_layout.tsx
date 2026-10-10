@@ -89,12 +89,12 @@ export default function AppTabs() {
 
         <NativeTabs.Trigger.Icon
           sf={{
-            default: 'hands.sparkles',
-            selected: 'hands.sparkles.fill',
+            default: 'camera.macro',
+            selected: 'camera.macro',
           }}
           md={{
-            default: 'self_improvement',
-            selected: 'self_improvement',
+            default: 'filter_vintage',
+            selected: 'filter_vintage',
           }}
         />
       </NativeTabs.Trigger>

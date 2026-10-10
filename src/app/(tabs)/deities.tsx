@@ -1,4 +1,10 @@
-import React, { useEffect, useMemo, useState } from 'react';
+
+import React, {
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
+
 import {
   Image,
   ScrollView,
@@ -8,10 +14,27 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
 
-import { apiRequest } from '@/services/api';
+import {
+  SafeAreaView,
+} from 'react-native-safe-area-context';
+
+import {
+  router,
+} from 'expo-router';
+
+import {
+  useTranslation,
+} from 'react-i18next';
+
+import {
+  apiRequest,
+} from '@/services/api';
+
+
+// ========================================
+// TYPES
+// ========================================
 
 type Deity = {
   id: number;
@@ -21,153 +44,291 @@ type Deity = {
   is_active: boolean;
 };
 
+
+// ========================================
+// DEITIES SCREEN
+// ========================================
+
 export default function DeitiesScreen() {
-  const [deities, setDeities] = useState<Deity[]>([]);
-  const [search, setSearch] = useState('');
-  const [loading, setLoading] = useState(true);
+
+  const { t } = useTranslation();
+
+  const [deities, setDeities] =
+    useState<Deity[]>([]);
+
+  const [search, setSearch] =
+    useState('');
+
+  const [loading, setLoading] =
+    useState(true);
+
+
+  // ========================================
+  // LOAD DEITIES
+  // ========================================
 
   useEffect(() => {
+
     loadDeities();
+
   }, []);
 
+
   const loadDeities = async () => {
+
     try {
+
       setLoading(true);
 
-      const response = await apiRequest('/deities');
+      const response =
+        await apiRequest('/deities');
 
-      if (response.success && Array.isArray(response.data)) {
+      if (
+        response.success &&
+        Array.isArray(response.data)
+      ) {
+
         setDeities(response.data);
+
       }
+
     } catch (error) {
-      console.error('Deities loading error:', error);
+
+      console.error(
+        'Deities loading error:',
+        error
+      );
+
     } finally {
+
       setLoading(false);
+
     }
+
   };
 
+
+  // ========================================
+  // FILTER DEITIES
+  // ========================================
+
   const filteredDeities = useMemo(() => {
-    const query = search.trim().toLowerCase();
+
+    const query =
+      search.trim().toLowerCase();
 
     if (!query) {
+
       return deities;
+
     }
 
     return deities.filter((deity) =>
-      deity.name.toLowerCase().includes(query)
+
+      deity.name
+        .toLowerCase()
+        .includes(query)
+
     );
+
   }, [search, deities]);
 
+
+  // ========================================
+  // SCREEN
+  // ========================================
+
   return (
+
     <SafeAreaView style={styles.container}>
+
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.content}
       >
-        {/* Header */}
+
+        {/* ================================= */}
+        {/* HEADER                            */}
+        {/* ================================= */}
+
         <View style={styles.header}>
+
           <View style={styles.headerTextContainer}>
+
             <Text style={styles.smallText}>
-              Divine Blessings
+              {t('deities.blessings')}
             </Text>
 
             <Text style={styles.title}>
-              Deities 🙏
+              {t('deities.title')}
             </Text>
 
             <Text style={styles.subtitle}>
-              Explore the divine forms worshipped at our temple.
+              {t('deities.subtitle')}
             </Text>
+
           </View>
+
 
           <View style={styles.omContainer}>
-            <Text style={styles.om}>ॐ</Text>
+
+            <Text style={styles.om}>
+              ॐ
+            </Text>
+
           </View>
+
         </View>
 
-        {/* Introduction Banner */}
+
+        {/* ================================= */}
+        {/* INTRODUCTION BANNER               */}
+        {/* ================================= */}
+
         <View style={styles.banner}>
-          <Text style={styles.bannerOm}>ॐ</Text>
+
+          <Text style={styles.bannerOm}>
+            ॐ
+          </Text>
 
           <View style={styles.bannerContent}>
+
             <Text style={styles.bannerTitle}>
-              Discover the Divine
+              {t('deities.bannerTitle')}
             </Text>
 
             <Text style={styles.bannerText}>
-              Learn about the deities, their significance and seek
-              their blessings through devotion and prayer.
+              {t('deities.bannerText')}
             </Text>
+
           </View>
+
         </View>
 
-        {/* Search */}
+
+        {/* ================================= */}
+        {/* SEARCH                            */}
+        {/* ================================= */}
+
         <View style={styles.searchContainer}>
-          <Text style={styles.searchIcon}>🔍</Text>
+
+          <Text style={styles.searchIcon}>
+            🔍
+          </Text>
 
           <TextInput
             value={search}
             onChangeText={setSearch}
-            placeholder="Search deity"
+            placeholder={t(
+              'deities.searchPlaceholder'
+            )}
             placeholderTextColor="#999"
             style={styles.searchInput}
           />
+
         </View>
 
-        {/* Section Header */}
+
+        {/* ================================= */}
+        {/* SECTION HEADER                    */}
+        {/* ================================= */}
+
         <View style={styles.sectionHeader}>
+
           <Text style={styles.sectionTitle}>
-            Temple Deities
+            {t('deities.sectionTitle')}
           </Text>
 
           <Text style={styles.countText}>
             {filteredDeities.length}
           </Text>
+
         </View>
 
-        {/* Loading */}
+
+        {/* ================================= */}
+        {/* DEITIES CONTENT                   */}
+        {/* ================================= */}
+
         {loading ? (
+
+          // ==================================
+          // LOADING STATE
+          // ==================================
+
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyIcon}>🙏</Text>
+
+            <Text style={styles.emptyIcon}>
+              🙏
+            </Text>
 
             <Text style={styles.emptyTitle}>
-              Loading Deities...
+              {t('deities.loading')}
             </Text>
 
             <Text style={styles.emptyText}>
-              Please wait while we load the temple deities.
+              {t('deities.loadingDescription')}
             </Text>
+
           </View>
+
         ) : filteredDeities.length > 0 ? (
-          /* Deity List */
+
+          // ==================================
+          // DEITIES LIST
+          // ==================================
+
           filteredDeities.map((deity) => (
+
             <TouchableOpacity
               key={deity.id}
               style={styles.deityCard}
               activeOpacity={0.8}
               onPress={() =>
+
                 router.push({
+
                   pathname: '/deity/[id]',
+
                   params: {
                     id: String(deity.id),
                   },
+
                 })
+
               }
             >
+
+              {/* DEITY IMAGE */}
+
               {deity.image_url ? (
+
                 <Image
-                  source={{ uri: deity.image_url }}
+                  source={{
+                    uri: deity.image_url,
+                  }}
                   style={styles.deityImage}
                 />
+
               ) : (
-                <View style={styles.deityImagePlaceholder}>
+
+                <View
+                  style={styles.deityImagePlaceholder}
+                >
+
                   <Text style={styles.placeholderIcon}>
                     🛕
                   </Text>
+
                 </View>
+
               )}
 
+
+              {/* DEITY INFORMATION */}
+
               <View style={styles.deityContent}>
+
                 <Text style={styles.deityName}>
                   {deity.name}
                 </Text>
@@ -177,59 +338,94 @@ export default function DeitiesScreen() {
                   numberOfLines={3}
                 >
                   {deity.description ||
-                    'Discover the divine significance of this deity.'}
+                    t('deities.descriptionFallback')}
                 </Text>
 
+
+                {/* VIEW DETAILS */}
+
                 <View style={styles.viewDetailsRow}>
+
                   <Text style={styles.viewDetails}>
-                    View Details
+                    {t('deities.viewDetails')}
                   </Text>
 
                   <Text style={styles.arrow}>
                     ›
                   </Text>
+
                 </View>
+
               </View>
+
             </TouchableOpacity>
+
           ))
+
         ) : (
-          /* Empty */
+
+          // ==================================
+          // EMPTY STATE
+          // ==================================
+
           <View style={styles.emptyContainer}>
+
             <Text style={styles.emptyIcon}>
               🙏
             </Text>
 
             <Text style={styles.emptyTitle}>
+
               {search.trim()
-                ? 'No Deity Found'
-                : 'No Deities Available'}
+                ? t('deities.noSearchResult')
+                : t('deities.noDeities')}
+
             </Text>
 
             <Text style={styles.emptyText}>
+
               {search.trim()
-                ? 'Try searching with another deity name.'
-                : 'No active temple deities are available right now.'}
+                ? t('deities.tryAnother')
+                : t('deities.noActive')}
+
             </Text>
+
           </View>
+
         )}
 
-        {/* Bottom Note */}
+
+        {/* ================================= */}
+        {/* BOTTOM BLESSING NOTE              */}
+        {/* ================================= */}
+
         <View style={styles.noteCard}>
+
           <Text style={styles.noteIcon}>
             🪔
           </Text>
 
           <Text style={styles.noteText}>
-            May the divine blessings of the deities bring peace,
-            strength and happiness to all devotees.
+            {t('deities.blessingNote')}
           </Text>
+
         </View>
+
       </ScrollView>
+
     </SafeAreaView>
+
   );
+
 }
 
+
+// ========================================
+// STYLES
+// ========================================
+
 const styles = StyleSheet.create({
+
   container: {
     flex: 1,
     backgroundColor: '#FFF9F0',
@@ -475,4 +671,5 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     color: '#6D5140',
   },
+
 });

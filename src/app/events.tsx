@@ -1,4 +1,9 @@
-import React, { useEffect, useState } from 'react';
+
+import React, {
+  useEffect,
+  useState,
+} from 'react';
+
 import {
   ScrollView,
   StyleSheet,
@@ -6,7 +11,9 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 import { apiRequest } from '@/services/api';
 
 type Event = {
@@ -21,13 +28,32 @@ type Event = {
   is_active: boolean;
 };
 
+const LOCALES: Record<string, string> = {
+  en: 'en-IN',
+  te: 'te-IN',
+  kn: 'kn-IN',
+  hi: 'hi-IN',
+  ta: 'ta-IN',
+};
+
 export default function EventsScreen() {
+
+  const { t, i18n } = useTranslation();
+
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  const locale = LOCALES[i18n.language] || 'en-IN';
+
+  // ========================================
+  // LOAD EVENTS
+  // ========================================
+
   async function loadEvents() {
+
     try {
+
       setLoading(true);
       setError('');
 
@@ -37,92 +63,123 @@ export default function EventsScreen() {
       }>('/events');
 
       setEvents(result.data || []);
+
     } catch (err) {
+
       console.error('Events API error:', err);
 
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'Failed to load events'
-      );
+      setError(t('events.loadError'));
+
     } finally {
+
       setLoading(false);
+
     }
+
   }
 
   useEffect(() => {
+
     loadEvents();
+
   }, []);
 
+  // ========================================
+  // FORMAT DATE
+  // ========================================
+
+  function parseDate(value?: string) {
+
+    if (!value) return null;
+
+    const date = new Date(
+      `${value.substring(0, 10)}T00:00:00`
+    );
+
+    return Number.isNaN(date.getTime())
+      ? null
+      : date;
+
+  }
+
   function formatDate(value?: string) {
-    if (!value) return 'DATE';
 
-    const date = new Date(value);
+    const date = parseDate(value);
 
-    if (isNaN(date.getTime())) {
-      return value.substring(0, 10);
+    if (!date) {
+      return value?.substring(0, 10) ||
+        t('events.date');
     }
 
-    return date
-      .toLocaleDateString('en-US', {
-        month: 'short',
-        day: '2-digit',
-      })
-      .toUpperCase();
+    return date.toLocaleDateString(locale, {
+      month: 'short',
+      day: '2-digit',
+    });
+
   }
 
   function formatDay(value?: string) {
-    if (!value) return '';
 
-    const date = new Date(value);
+    const date = parseDate(value);
 
-    if (isNaN(date.getTime())) {
-      return '';
-    }
+    if (!date) return '';
 
-    return date
-      .toLocaleDateString('en-US', {
-        weekday: 'long',
-      })
-      .toUpperCase();
+    return date.toLocaleDateString(locale, {
+      weekday: 'long',
+    });
+
   }
 
   function formatTime(value?: string) {
+
     if (!value) return '';
 
     return value.substring(0, 5);
+
   }
 
   function getIcon(index: number) {
+
     const icons = ['🪔', '🎉', '🙏', '📿', '🛕'];
 
     return icons[index % icons.length];
+
   }
 
   const featuredEvent = events[0];
   const upcomingEvents = events.slice(1);
 
+  // ========================================
+  // SCREEN
+  // ========================================
+
   return (
+
     <SafeAreaView style={styles.container}>
+
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.content}
       >
-        {/* Header */}
+
+        {/* HEADER */}
+
         <View style={styles.header}>
-          <View>
+
+          <View style={styles.headerContent}>
+
             <Text style={styles.smallText}>
-              Temple Community
+              {t('events.community')}
             </Text>
 
             <Text style={styles.title}>
-              Events 📅
+              {t('events.title')} 📅
             </Text>
 
             <Text style={styles.subtitle}>
-              Join us in devotion, celebrations and
-              special occasions
+              {t('events.subtitle')}
             </Text>
+
           </View>
 
           <View style={styles.settingsButton}>
@@ -130,14 +187,21 @@ export default function EventsScreen() {
               ⚙️
             </Text>
           </View>
+
         </View>
 
+        {/* LOADING */}
+
         {loading ? (
+
           <Text style={styles.statusText}>
-            Loading events...
+            {t('events.loading')}
           </Text>
+
         ) : error ? (
+
           <View>
+
             <Text style={styles.errorText}>
               {error}
             </Text>
@@ -146,189 +210,202 @@ export default function EventsScreen() {
               style={styles.retryButton}
               onPress={loadEvents}
             >
+
               <Text style={styles.retryText}>
-                Retry
+                {t('events.retry')}
               </Text>
+
             </TouchableOpacity>
+
           </View>
+
         ) : events.length === 0 ? (
+
           <Text style={styles.statusText}>
-            No upcoming events.
+            {t('events.noEvents')}
           </Text>
+
         ) : (
+
           <>
-            {/* Featured Event */}
+
+            {/* FEATURED EVENT */}
+
             {featuredEvent && (
+
               <>
+
                 <Text style={styles.sectionTitle}>
-                  Featured Event
+                  {t('events.featured')}
                 </Text>
 
                 <TouchableOpacity
                   style={styles.featuredCard}
+                  activeOpacity={0.8}
                 >
-                  <View
-                    style={styles.featuredIconBox}
-                  >
-                    <Text
-                      style={styles.featuredIcon}
-                    >
+
+                  <View style={styles.featuredIconBox}>
+
+                    <Text style={styles.featuredIcon}>
                       🛕
                     </Text>
+
                   </View>
 
-                  <View
-                    style={styles.featuredContent}
-                  >
-                    <Text
-                      style={styles.featuredDate}
-                    >
-                      {formatDate(
-                        featuredEvent.event_date
-                      )}
-                      {formatDay(
-                        featuredEvent.event_date
-                      )
+                  <View style={styles.featuredContent}>
+
+                    <Text style={styles.featuredDate}>
+                      {formatDate(featuredEvent.event_date)}
+
+                      {formatDay(featuredEvent.event_date)
                         ? ` • ${formatDay(
                             featuredEvent.event_date
                           )}`
                         : ''}
                     </Text>
 
-                    <Text
-                      style={styles.featuredTitle}
-                    >
+                    <Text style={styles.featuredTitle}>
                       {featuredEvent.title}
                     </Text>
 
-                    <Text
-                      style={
-                        styles.featuredDescription
-                      }
-                    >
+                    <Text style={styles.featuredDescription}>
                       {featuredEvent.description ||
-                        'Join us for this special temple event.'}
+                        t('events.descriptionFallback')}
                     </Text>
 
-                    <Text
-                      style={styles.featuredTime}
-                    >
+                    <Text style={styles.featuredTime}>
                       🕐{' '}
-                      {formatTime(
-                        featuredEvent.start_time
-                      ) || 'Time not specified'}
+                      {formatTime(featuredEvent.start_time) ||
+                        t('events.timeNotSpecified')}
+
                       {featuredEvent.end_time
                         ? ` - ${formatTime(
                             featuredEvent.end_time
                           )}`
                         : ''}
                     </Text>
+
+                    {featuredEvent.location ? (
+
+                      <Text style={styles.featuredTime}>
+                        📍 {featuredEvent.location}
+                      </Text>
+
+                    ) : null}
+
                   </View>
+
                 </TouchableOpacity>
+
               </>
+
             )}
 
-            {/* Upcoming Events */}
+            {/* UPCOMING EVENTS */}
+
             <Text style={styles.sectionTitle}>
-              Upcoming Events
+              {t('events.upcoming')}
             </Text>
 
             {upcomingEvents.length === 0 ? (
+
               <Text style={styles.statusText}>
-                No more upcoming events.
+                {t('events.noMore')}
               </Text>
+
             ) : (
-              upcomingEvents.map(
-                (event, index) => (
-                  <EventCard
-                    key={event.id}
-                    date={formatDate(
-                      event.event_date
-                    )}
-                    icon={getIcon(index)}
-                    title={event.title}
-                    time={
-                      formatTime(
-                        event.start_time
-                      ) ||
-                      'Time not specified'
-                    }
-                    description={
-                      event.description ||
-                      'Join us for this special temple event.'
-                    }
-                  />
-                )
-              )
+
+              upcomingEvents.map((event, index) => (
+
+                <View
+                  key={event.id}
+                  style={styles.eventCard}
+                >
+
+                  <View style={styles.dateBox}>
+
+                    <Text style={styles.dateText}>
+                      {formatDate(event.event_date)}
+                    </Text>
+
+                  </View>
+
+                  <View style={styles.eventIconBox}>
+
+                    <Text style={styles.eventIcon}>
+                      {getIcon(index)}
+                    </Text>
+
+                  </View>
+
+                  <View style={styles.eventContent}>
+
+                    <Text style={styles.eventTitle}>
+                      {event.title}
+                    </Text>
+
+                    <Text style={styles.eventTime}>
+                      🕐{' '}
+                      {formatTime(event.start_time) ||
+                        t('events.timeNotSpecified')}
+                    </Text>
+
+                    <Text style={styles.eventDescription}>
+                      {event.description ||
+                        t('events.descriptionFallback')}
+                    </Text>
+
+                    {event.location ? (
+
+                      <Text style={styles.eventDescription}>
+                        📍 {event.location}
+                      </Text>
+
+                    ) : null}
+
+                  </View>
+
+                  <Text style={styles.arrow}>
+                    ›
+                  </Text>
+
+                </View>
+
+              ))
+
             )}
 
-            {/* View All */}
+            {/* REFRESH */}
+
             <TouchableOpacity
               style={styles.viewAllButton}
               onPress={loadEvents}
             >
+
               <Text style={styles.viewAllText}>
-                Refresh Events
+                {t('events.refresh')}
               </Text>
+
             </TouchableOpacity>
+
           </>
+
         )}
+
       </ScrollView>
+
     </SafeAreaView>
+
   );
+
 }
 
-function EventCard({
-  date,
-  icon,
-  title,
-  time,
-  description,
-}: {
-  date: string;
-  icon: string;
-  title: string;
-  time: string;
-  description: string;
-}) {
-  return (
-    <TouchableOpacity
-      style={styles.eventCard}
-    >
-      <View style={styles.dateBox}>
-        <Text style={styles.dateText}>
-          {date}
-        </Text>
-      </View>
-
-      <View style={styles.eventIconBox}>
-        <Text style={styles.eventIcon}>
-          {icon}
-        </Text>
-      </View>
-
-      <View style={styles.eventContent}>
-        <Text style={styles.eventTitle}>
-          {title}
-        </Text>
-
-        <Text style={styles.eventTime}>
-          🕐 {time}
-        </Text>
-
-        <Text style={styles.eventDescription}>
-          {description}
-        </Text>
-      </View>
-
-      <Text style={styles.arrow}>
-        ›
-      </Text>
-    </TouchableOpacity>
-  );
-}
+// ========================================
+// STYLES
+// ========================================
 
 const styles = StyleSheet.create({
+
   container: {
     flex: 1,
     backgroundColor: '#FFF9F0',
@@ -344,6 +421,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 26,
+  },
+
+  headerContent: {
+    flex: 1,
+    paddingRight: 12,
   },
 
   smallText: {
@@ -362,7 +444,6 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 12,
     color: '#777',
-    maxWidth: 250,
     lineHeight: 17,
   },
 
@@ -439,6 +520,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: '#FFFFFF',
     fontWeight: '600',
+    marginTop: 3,
   },
 
   eventCard: {
@@ -453,18 +535,20 @@ const styles = StyleSheet.create({
 
   dateBox: {
     width: 55,
-    height: 55,
+    minHeight: 55,
     borderRadius: 13,
     backgroundColor: '#F4E0C5',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 10,
+    padding: 3,
   },
 
   dateText: {
     fontSize: 10,
     fontWeight: '700',
     color: '#8B4513',
+    textAlign: 'center',
   },
 
   eventIconBox: {
@@ -547,4 +631,5 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '700',
   },
+
 });

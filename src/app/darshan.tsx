@@ -1,4 +1,8 @@
-import React, { useEffect, useState } from 'react';
+
+import React, {
+  useEffect,
+  useState,
+} from 'react';
 
 import {
   ActivityIndicator,
@@ -10,7 +14,7 @@ import {
 } from 'react-native';
 
 import { SafeAreaView } from 'react-native-safe-area-context';
-
+import { useTranslation } from 'react-i18next';
 import { apiRequest } from '@/services/api';
 
 type DarshanSlot = {
@@ -25,34 +29,39 @@ type DarshanSlot = {
   is_active: boolean;
 };
 
+const LOCALES: Record<string, string> = {
+  en: 'en-IN',
+  te: 'te-IN',
+  kn: 'kn-IN',
+  hi: 'hi-IN',
+  ta: 'ta-IN',
+};
+
 export default function DarshanScreen() {
-  const [slots, setSlots] = useState<DarshanSlot[]>([]);
 
-  const [allSlots, setAllSlots] = useState<
-    DarshanSlot[]
-  >([]);
+  const { t, i18n } = useTranslation();
 
-  const [loading, setLoading] =
-    useState(true);
+  const [slots, setSlots] =
+    useState<DarshanSlot[]>([]);
 
-  const [allLoading, setAllLoading] =
-    useState(false);
+  const [allSlots, setAllSlots] =
+    useState<DarshanSlot[]>([]);
 
-  const [showAll, setShowAll] =
-    useState(false);
+  const [loading, setLoading] = useState(true);
+  const [allLoading, setAllLoading] = useState(false);
+  const [showAll, setShowAll] = useState(false);
+  const [error, setError] = useState('');
 
-  const [error, setError] =
-    useState('');
+  const locale = LOCALES[i18n.language] || 'en-IN';
 
-  /*
-   * =====================================================
-   * LOAD TODAY'S DARSHAN
-   * GET /api/darshan
-   * =====================================================
-   */
+  // ========================================
+  // LOAD TODAY'S DARSHAN
+  // ========================================
 
   async function loadDarshan() {
+
     try {
+
       setLoading(true);
       setError('');
 
@@ -62,31 +71,33 @@ export default function DarshanScreen() {
       }>('/darshan');
 
       setSlots(result.data || []);
+
     } catch (err) {
-      console.error(
-        'Darshan API error:',
-        err
-      );
+
+      console.error('Darshan API error:', err);
 
       setError(
         err instanceof Error
           ? err.message
-          : 'Failed to load Darshan slots'
+          : t('darshan.loadError')
       );
+
     } finally {
+
       setLoading(false);
+
     }
+
   }
 
-  /*
-   * =====================================================
-   * LOAD ALL ACTIVE DARSHAN
-   * GET /api/darshan/all
-   * =====================================================
-   */
+  // ========================================
+  // LOAD ALL DARSHANS
+  // ========================================
 
-  async function loadAllDarshan() {
+  async function loadAllDarshan(displayAll = true) {
+
     try {
+
       setAllLoading(true);
       setError('');
 
@@ -97,678 +108,501 @@ export default function DarshanScreen() {
 
       setAllSlots(result.data || []);
 
-      setShowAll(true);
-    } catch (err) {
-      console.error(
-        'All Darshan API error:',
-        err
-      );
+      if (displayAll) {
+        setShowAll(true);
+      }
 
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'Failed to load all Darshan slots'
-      );
+    } catch (err) {
+
+      console.error('All Darshan API error:', err);
+      setError(t('darshan.loadError'));
+
     } finally {
+
       setAllLoading(false);
+
     }
+
   }
 
-  /*
-   * =====================================================
-   * INITIAL LOAD
-   * =====================================================
-   */
+  // ========================================
+  // INITIAL LOAD
+  // ========================================
 
   useEffect(() => {
+
     loadDarshan();
+    loadAllDarshan(false);
+
   }, []);
 
-  /*
-   * =====================================================
-   * FORMAT TIME
-   * =====================================================
-   */
+  // ========================================
+  // UPCOMING DARSHANS
+  // ========================================
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const upcomingSlots = allSlots
+    .filter((slot) => {
+
+      const dateString =
+        slot.darshan_date?.substring(0, 10);
+
+      if (!dateString || !slot.is_active) {
+        return false;
+      }
+
+      const darshanDate =
+        new Date(`${dateString}T00:00:00`);
+
+      return (
+        !Number.isNaN(darshanDate.getTime()) &&
+        darshanDate > today
+      );
+
+    })
+    .sort((a, b) =>
+      a.darshan_date.substring(0, 10).localeCompare(
+        b.darshan_date.substring(0, 10)
+      )
+    );
+
+  // ========================================
+  // FORMAT TIME
+  // ========================================
 
   function formatTime(value: string) {
+
     if (!value) return '';
 
     const [hourString, minute] =
       value.substring(0, 5).split(':');
 
-    let hour = Number(hourString);
+    const hour = Number(hourString);
 
-    const ampm =
-      hour >= 12 ? 'PM' : 'AM';
+    if (!Number.isFinite(hour)) return value;
 
-    hour = hour % 12 || 12;
+    const period =
+      hour >= 12
+        ? t('darshan.pm')
+        : t('darshan.am');
 
-    return `${hour}:${minute} ${ampm}`;
+    return `${hour % 12 || 12}:${minute} ${period}`;
+
   }
 
-  /*
-   * =====================================================
-   * FORMAT DATE
-   * =====================================================
-   */
+  // ========================================
+  // FORMAT DATE
+  // ========================================
 
   function formatDate(value: string) {
+
     if (!value) return '';
 
     const date = new Date(
-      `${value.substring(
-        0,
-        10
-      )}T00:00:00`
+      `${value.substring(0, 10)}T00:00:00`
     );
 
-    return date.toLocaleDateString(
-      'en-IN',
-      {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-      }
-    );
+    if (Number.isNaN(date.getTime())) {
+      return value.substring(0, 10);
+    }
+
+    return date.toLocaleDateString(locale, {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    });
+
   }
 
-  /*
-   * =====================================================
-   * DARSHAN ICON
-   * =====================================================
-   */
+  // ========================================
+  // DARSHAN ICON
+  // ========================================
 
   function getIcon(name: string) {
-    const lower =
-      name.toLowerCase();
 
-    if (
-      lower.includes('morning')
-    ) {
-      return '🌅';
-    }
+    const lower = name.toLowerCase();
 
-    if (
-      lower.includes('afternoon')
-    ) {
-      return '☀️';
-    }
-
-    if (
-      lower.includes('evening')
-    ) {
-      return '🌇';
-    }
-
-    if (
-      lower.includes('special')
-    ) {
-      return '🌸';
-    }
+    if (lower.includes('morning')) return '🌅';
+    if (lower.includes('afternoon')) return '☀️';
+    if (lower.includes('evening')) return '🌇';
+    if (lower.includes('special')) return '🌸';
 
     return '🙏';
+
   }
 
-  /*
-   * =====================================================
-   * RENDER
-   * =====================================================
-   */
+  // ========================================
+  // RENDER CARD
+  // ========================================
 
-  return (
-    <SafeAreaView
-      style={styles.container}
-    >
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={
-          styles.content
-        }
+  function renderCard(
+    slot: DarshanSlot,
+    prefix: string
+  ) {
+
+    return (
+
+      <View
+        key={`${prefix}-${slot.id}`}
+        style={styles.darshanCard}
       >
 
-        {/* =================================================
-            HEADER
-        ================================================= */}
+        <View style={styles.cardTop}>
+
+          <View style={styles.cardContent}>
+
+            <Text style={styles.cardTitle}>
+              {slot.name}
+            </Text>
+
+            <Text style={styles.cardTime}>
+              {formatTime(slot.start_time)}
+              {' – '}
+              {formatTime(slot.end_time)}
+            </Text>
+
+          </View>
+
+          <Text style={styles.cardIcon}>
+            {getIcon(slot.name)}
+          </Text>
+
+        </View>
+
+        <Text style={styles.cardDate}>
+          {formatDate(slot.darshan_date)}
+        </Text>
+
+        <Text style={styles.cardDescription}>
+          {slot.description ||
+            t('darshan.descriptionFallback')}
+        </Text>
+
+        <View style={styles.infoRow}>
+
+          <Text style={styles.price}>
+            ₹{Number(slot.price).toLocaleString(locale)}
+          </Text>
+
+          <Text style={styles.capacity}>
+            {t('darshan.capacity', {
+              count: slot.capacity,
+            })}
+          </Text>
+
+        </View>
+
+      </View>
+
+    );
+
+  }
+
+  // ========================================
+  // EMPTY STATE
+  // ========================================
+
+  function renderEmpty(
+    title: string,
+    description: string
+  ) {
+
+    return (
+
+      <View style={styles.emptyBox}>
+
+        <Text style={styles.emptyIcon}>🙏</Text>
+
+        <Text style={styles.emptyTitle}>
+          {title}
+        </Text>
+
+        <Text style={styles.emptyText}>
+          {description}
+        </Text>
+
+      </View>
+
+    );
+
+  }
+
+  // ========================================
+  // SCREEN
+  // ========================================
+
+  return (
+
+    <SafeAreaView style={styles.container}>
+
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.content}
+      >
+
+        {/* HEADER */}
 
         <View style={styles.header}>
+
           <Text style={styles.smallTitle}>
-            Temple Services
+            {t('darshan.templeServices')}
           </Text>
 
           <Text style={styles.title}>
-            Darshan 🙏
+            {t('darshan.title')} 🙏
           </Text>
 
           <Text style={styles.subtitle}>
-            Plan your visit and receive divine
-            blessings
+            {t('darshan.subtitle')}
           </Text>
+
         </View>
 
-        {/* =================================================
-            TODAY'S DARSHAN
-        ================================================= */}
+        {/* TODAY'S DARSHAN */}
 
         <Text style={styles.sectionTitle}>
-          Today's Darshan
+          {t('darshan.today')}
         </Text>
 
         {loading ? (
-          <View
-            style={styles.loadingBox}
-          >
+
+          <View style={styles.loadingBox}>
+
             <ActivityIndicator
               size="large"
               color="#8B4513"
             />
 
-            <Text
-              style={styles.loadingText}
-            >
-              Loading Darshan slots...
+            <Text style={styles.loadingText}>
+              {t('darshan.loading')}
             </Text>
+
           </View>
-        ) : error &&
-          slots.length === 0 ? (
-          <View
-            style={styles.errorBox}
-          >
-            <Text
-              style={styles.errorText}
-            >
+
+        ) : error && slots.length === 0 ? (
+
+          <View style={styles.errorBox}>
+
+            <Text style={styles.errorText}>
               {error}
             </Text>
 
             <TouchableOpacity
-              style={
-                styles.retryButton
-              }
+              style={styles.retryButton}
               onPress={loadDarshan}
             >
-              <Text
-                style={styles.retryText}
-              >
-                Retry
+              <Text style={styles.retryText}>
+                {t('darshan.retry')}
               </Text>
             </TouchableOpacity>
+
           </View>
+
         ) : slots.length === 0 ? (
-          <View
-            style={styles.emptyBox}
-          >
-            <Text
-              style={styles.emptyIcon}
-            >
-              🙏
-            </Text>
 
-            <Text
-              style={styles.emptyTitle}
-            >
-              No Darshan slots available
-            </Text>
+          renderEmpty(
+            t('darshan.noSlots'),
+            t('darshan.checkLater')
+          )
 
-            <Text
-              style={styles.emptyText}
-            >
-              Please check again later.
-            </Text>
-          </View>
         ) : (
-          slots.map((slot) => (
-            <DarshanCard
-              key={slot.id}
-              icon={getIcon(
-                slot.name
-              )}
-              title={slot.name}
-              time={`${formatTime(
-                slot.start_time
-              )} – ${formatTime(
-                slot.end_time
-              )}`}
-              description={
-                slot.description ||
-                'Darshan available at the temple.'
-              }
-              date={
-                slot.darshan_date
-              }
-              price={slot.price}
-              capacity={
-                slot.capacity
-              }
-            />
-          ))
+
+          slots.map((slot) =>
+            renderCard(slot, 'today')
+          )
+
         )}
 
-        {/* =================================================
-            VIEW ALL DARSHANS BUTTON
-        ================================================= */}
+        {/* VIEW ALL */}
 
         <TouchableOpacity
-          style={
-            styles.viewAllButton
-          }
-          onPress={
-            showAll
-              ? loadAllDarshan
-              : loadAllDarshan
-          }
+          style={styles.viewAllButton}
+          onPress={() => loadAllDarshan(true)}
           disabled={allLoading}
         >
-          <Text
-            style={styles.viewAllText}
-          >
+
+          <Text style={styles.viewAllText}>
             {allLoading
-              ? 'Loading...'
+              ? t('darshan.loadingShort')
               : showAll
-              ? 'Refresh All Darshans'
-              : 'View All Darshans'}
+                ? t('darshan.refreshAll')
+                : t('darshan.viewAll')}
           </Text>
+
         </TouchableOpacity>
 
-        {/* =================================================
-            ALL DARSHANS
-        ================================================= */}
+        {/* ALL DARSHANS */}
 
         {showAll && (
+
           <>
-            <Text
-              style={
-                styles.sectionTitle
-              }
-            >
-              All Darshans
+
+            <Text style={styles.sectionTitle}>
+              {t('darshan.all')}
             </Text>
 
-            {allSlots.length === 0 ? (
-              <View
-                style={
-                  styles.emptyBox
-                }
-              >
-                <Text
-                  style={
-                    styles.emptyIcon
-                  }
-                >
-                  🙏
-                </Text>
-
-                <Text
-                  style={
-                    styles.emptyTitle
-                  }
-                >
-                  No Darshan slots available
-                </Text>
-
-                <Text
-                  style={
-                    styles.emptyText
-                  }
-                >
-                  Please check again later.
-                </Text>
-              </View>
-            ) : (
-              allSlots.map(
-                (slot) => (
-                  <DarshanCard
-                    key={slot.id}
-                    icon={getIcon(
-                      slot.name
-                    )}
-                    title={
-                      slot.name
-                    }
-                    time={`${formatTime(
-                      slot.start_time
-                    )} – ${formatTime(
-                      slot.end_time
-                    )}`}
-                    description={
-                      slot.description ||
-                      'Darshan available at the temple.'
-                    }
-                    date={
-                      slot.darshan_date
-                    }
-                    price={
-                      slot.price
-                    }
-                    capacity={
-                      slot.capacity
-                    }
-                  />
+            {allSlots.length === 0
+              ? renderEmpty(
+                  t('darshan.noSlots'),
+                  t('darshan.checkLater')
                 )
-              )
-            )}
+              : allSlots.map((slot) =>
+                  renderCard(slot, 'all')
+                )}
+
           </>
+
         )}
 
-        {/* =================================================
-            ERROR FOR ALL DARSHAN
-        ================================================= */}
+        {/* UPCOMING DARSHANS */}
 
-        {error &&
-          showAll && (
-            <View
-              style={
-                styles.errorBox
-              }
-            >
-              <Text
-                style={
-                  styles.errorText
-                }
-              >
-                {error}
-              </Text>
+        <Text style={styles.sectionTitle}>
+          {t('darshan.upcoming')}
+        </Text>
+
+        {allLoading && allSlots.length === 0 ? (
+
+          <View style={styles.loadingBox}>
+
+            <ActivityIndicator
+              size="small"
+              color="#8B4513"
+            />
+
+            <Text style={styles.loadingText}>
+              {t('darshan.loadingUpcoming')}
+            </Text>
+
+          </View>
+
+        ) : upcomingSlots.length === 0 ? (
+
+          <View style={styles.emptyBox}>
+
+            <Text style={styles.emptyIcon}>🙏</Text>
+
+            <Text style={styles.emptyTitle}>
+              {t('darshan.noUpcoming')}
+            </Text>
+
+            <Text style={styles.emptyText}>
+              {t('darshan.upcomingLater')}
+            </Text>
+
+            {error ? (
 
               <TouchableOpacity
-                style={
-                  styles.retryButton
-                }
-                onPress={
-                  loadAllDarshan
-                }
+                style={styles.retryButton}
+                onPress={() => loadAllDarshan(false)}
+                disabled={allLoading}
               >
-                <Text
-                  style={
-                    styles.retryText
-                  }
-                >
-                  Retry
+                <Text style={styles.retryText}>
+                  {t('darshan.retry')}
                 </Text>
               </TouchableOpacity>
-            </View>
-          )}
 
-        {/* =================================================
-            SPECIAL DARSHAN
-        ================================================= */}
+            ) : null}
 
-        <Text
-          style={
-            styles.sectionTitle
-          }
+          </View>
+
+        ) : (
+
+          upcomingSlots.map((slot) =>
+            renderCard(slot, 'upcoming')
+          )
+
+        )}
+
+        <TouchableOpacity
+          style={styles.viewAllButton}
+          onPress={() => loadAllDarshan(false)}
+          disabled={allLoading}
         >
-          Special Darshan
+
+          <Text style={styles.viewAllText}>
+            {allLoading
+              ? t('darshan.loadingShort')
+              : t('darshan.refreshUpcoming')}
+          </Text>
+
+        </TouchableOpacity>
+
+        {/* SPECIAL DARSHAN */}
+
+        <Text style={styles.sectionTitle}>
+          {t('darshan.special')}
         </Text>
 
-        <View
-          style={
-            styles.specialCard
-          }
-        >
-          <Text
-            style={
-              styles.specialIcon
-            }
-          >
-            🌸
+        <View style={styles.specialCard}>
+
+          <Text style={styles.specialIcon}>🌸</Text>
+
+          <Text style={styles.specialTitle}>
+            {t('darshan.specialBooking')}
           </Text>
 
-          <Text
-            style={
-              styles.specialTitle
-            }
-          >
-            Special Darshan Booking
+          <Text style={styles.specialText}>
+            {t('darshan.specialDescription')}
           </Text>
 
-          <Text
-            style={
-              styles.specialText
-            }
-          >
-            Reserve your Darshan slot in
-            advance and enjoy a convenient
-            temple visit.
-          </Text>
+          <TouchableOpacity style={styles.bookButton}>
 
-          <TouchableOpacity
-            style={
-              styles.bookButton
-            }
-          >
-            <Text
-              style={
-                styles.bookButtonText
-              }
-            >
-              Book Darshan
+            <Text style={styles.bookButtonText}>
+              {t('darshan.book')}
             </Text>
+
           </TouchableOpacity>
+
         </View>
 
-        {/* =================================================
-            TEMPLE GUIDELINES
-        ================================================= */}
+        {/* GUIDELINES */}
 
-        <Text
-          style={
-            styles.sectionTitle
-          }
-        >
-          Temple Guidelines
+        <Text style={styles.sectionTitle}>
+          {t('darshan.guidelines')}
         </Text>
 
-        <View
-          style={
-            styles.guidelineCard
-          }
-        >
-          <Guideline
-            text="Please arrive 15 minutes before your slot."
-          />
+        <View style={styles.guidelineCard}>
 
-          <Guideline
-            text="Maintain silence and follow temple instructions."
-          />
+          {[
+            t('darshan.guideline1'),
+            t('darshan.guideline2'),
+            t('darshan.guideline3'),
+            t('darshan.guideline4'),
+          ].map((guideline, index) => (
 
-          <Guideline
-            text="Please follow the temple dress guidelines."
-          />
+            <View
+              key={index}
+              style={styles.guidelineRow}
+            >
 
-          <Guideline
-            text="Keep your booking confirmation ready."
-          />
+              <Text style={styles.check}>✓</Text>
+
+              <Text style={styles.guidelineText}>
+                {guideline}
+              </Text>
+
+            </View>
+
+          ))}
+
         </View>
 
       </ScrollView>
+
     </SafeAreaView>
+
   );
+
 }
 
-/*
- * =========================================================
- * DARSHAN CARD
- * =========================================================
- */
-
-function DarshanCard({
-  icon,
-  title,
-  time,
-  description,
-  date,
-  price,
-  capacity,
-}: {
-  icon: string;
-  title: string;
-  time: string;
-  description: string;
-  date: string;
-  price: string | number;
-  capacity: number;
-}) {
-  function formatDate(
-    value: string
-  ) {
-    if (!value) return '';
-
-    const date = new Date(
-      `${value.substring(
-        0,
-        10
-      )}T00:00:00`
-    );
-
-    return date.toLocaleDateString(
-      'en-IN',
-      {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-      }
-    );
-  }
-
-  return (
-    <View
-      style={
-        styles.darshanCard
-      }
-    >
-
-      {/* TOP */}
-
-      <View
-        style={
-          styles.cardTop
-        }
-      >
-        <View
-          style={
-            styles.cardContent
-          }
-        >
-          <Text
-            style={
-              styles.cardTitle
-            }
-          >
-            {title}
-          </Text>
-
-          <Text
-            style={
-              styles.cardTime
-            }
-          >
-            {time}
-          </Text>
-        </View>
-
-        <Text
-          style={
-            styles.cardIcon
-          }
-        >
-          {icon}
-        </Text>
-      </View>
-
-      {/* DATE */}
-
-      <Text
-        style={
-          styles.cardDate
-        }
-      >
-        {formatDate(date)}
-      </Text>
-
-      {/* DESCRIPTION */}
-
-      <Text
-        style={
-          styles.cardDescription
-        }
-      >
-        {description}
-      </Text>
-
-      {/* PRICE / CAPACITY */}
-
-      <View
-        style={
-          styles.infoRow
-        }
-      >
-        <Text
-          style={
-            styles.price
-          }
-        >
-          ₹
-          {Number(
-            price
-          ).toLocaleString(
-            'en-IN'
-          )}
-        </Text>
-
-        <Text
-          style={
-            styles.capacity
-          }
-        >
-          Capacity: {capacity}
-        </Text>
-      </View>
-
-    </View>
-  );
-}
-
-/*
- * =========================================================
- * GUIDELINE
- * =========================================================
- */
-
-function Guideline({
-  text,
-}: {
-  text: string;
-}) {
-  return (
-    <View
-      style={
-        styles.guidelineRow
-      }
-    >
-      <Text
-        style={
-          styles.check
-        }
-      >
-        ✓
-      </Text>
-
-      <Text
-        style={
-          styles.guidelineText
-        }
-      >
-        {text}
-      </Text>
-    </View>
-  );
-}
-
-/*
- * =========================================================
- * STYLES
- * =========================================================
- */
+// ========================================
+// STYLES
+// ========================================
 
 const styles = StyleSheet.create({
+
   container: {
     flex: 1,
     backgroundColor: '#FFF9F0',
@@ -809,10 +643,6 @@ const styles = StyleSheet.create({
     marginTop: 8,
     marginBottom: 14,
   },
-
-  /*
-   * DARSHAN CARD
-   */
 
   darshanCard: {
     backgroundColor: '#FFFFFF',
@@ -867,6 +697,8 @@ const styles = StyleSheet.create({
   infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 8,
     marginTop: 12,
   },
 
@@ -881,14 +713,11 @@ const styles = StyleSheet.create({
     color: '#777',
   },
 
-  /*
-   * VIEW ALL
-   */
-
   viewAllButton: {
     backgroundColor: '#8B4513',
     borderRadius: 24,
     paddingVertical: 13,
+    paddingHorizontal: 12,
     alignItems: 'center',
     marginTop: 4,
     marginBottom: 24,
@@ -898,11 +727,8 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '700',
+    textAlign: 'center',
   },
-
-  /*
-   * LOADING
-   */
 
   loadingBox: {
     backgroundColor: '#FFFFFF',
@@ -917,10 +743,6 @@ const styles = StyleSheet.create({
     color: '#777',
     fontSize: 13,
   },
-
-  /*
-   * ERROR
-   */
 
   errorBox: {
     backgroundColor: '#FFF0ED',
@@ -939,17 +761,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#8B4513',
     borderRadius: 20,
     paddingVertical: 10,
+    paddingHorizontal: 20,
     alignItems: 'center',
+    marginTop: 12,
   },
 
   retryText: {
     color: '#FFFFFF',
     fontWeight: '700',
   },
-
-  /*
-   * EMPTY
-   */
 
   emptyBox: {
     backgroundColor: '#FFFFFF',
@@ -968,17 +788,15 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: '#4A2C18',
+    textAlign: 'center',
   },
 
   emptyText: {
     fontSize: 12,
     color: '#777',
     marginTop: 5,
+    textAlign: 'center',
   },
-
-  /*
-   * SPECIAL DARSHAN
-   */
 
   specialCard: {
     backgroundColor: '#F4E0C5',
@@ -1019,10 +837,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
-  /*
-   * GUIDELINES
-   */
-
   guidelineCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 18,
@@ -1048,4 +862,5 @@ const styles = StyleSheet.create({
     color: '#6E5542',
     lineHeight: 19,
   },
+
 });

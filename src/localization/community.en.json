@@ -1,0 +1,87 @@
+
+{
+  "announcements": {
+    "loading": "Loading announcement...",
+    "notFound": "Announcement not found."
+  },
+  "darshanVideos": {
+    "live": "LIVE",
+    "watch": "WATCH",
+    "watchNow": "Watch now",
+    "loading": "Loading Darshan Videos...",
+    "title": "Darshan Videos",
+    "subtitle": "Watch the latest temple darshan videos",
+    "emptyTitle": "No videos available",
+    "emptyText": "Darshan videos will appear here when they are added."
+  },
+  "activities": {
+    "heroPill": "SPIRITUAL • COMMUNITY • SERVICE",
+    "title": "Activities",
+    "subtitle": "Discover spiritual programs, seva, celebrations and moments of devotion.",
+    "spaceTo": "A SPACE TO",
+    "connectLearnServe": "Connect • Learn • Serve",
+    "livingTradition": "A living tradition",
+    "introText": "Explore experiences that bring devotion, knowledge and community together.",
+    "explore": "Explore",
+    "spiritualActivities": "Spiritual Activities",
+    "loading": "Loading activities...",
+    "loadSectionsError": "Unable to load activity sections.",
+    "connectionError": "Unable to connect to the activity service.",
+    "loadError": "Unable to load activities",
+    "retry": "Try Again",
+    "noActivities": "No activities available",
+    "emptyText": "New activity sections will appear here when they are added by the temple admin.",
+    "descriptionFallback": "Explore spiritual activities and programs.",
+    "dailyReflection": "DAILY REFLECTION",
+    "guruVani": "Guru Vani",
+    "todayMessage": "TODAY'S MESSAGE",
+    "quote": "Walk with devotion and let faith guide every step.",
+    "vaniDescription": "Daily sacred thoughts and spiritual messages for a peaceful beginning.",
+    "discover": "DISCOVER",
+    "programs": "Dharmayatra & Programs",
+    "viewAll": "View all",
+    "dharmayatra": "Dharmayatra",
+    "dharmayatraDescription": "Join spiritual journeys, pilgrimages and meaningful temple programs.",
+    "spiritualJourney": "SPIRITUAL JOURNEY",
+    "specialPrograms": "Special Programs",
+    "specialProgramsDescription": "Discover upcoming gatherings, celebrations and spiritual programs.",
+    "upcoming": "UPCOMING",
+    "offerService": "OFFER YOUR SERVICE",
+    "serveWithDevotion": "Serve with devotion",
+    "sevaDescription": "Participate in seva and contribute your time, skills and presence.",
+    "exploreSeva": "Explore Seva",
+    "stayConnected": "STAY CONNECTED",
+    "insights": "Insights & Messages",
+    "insight1": "Daily spiritual message and blessings",
+    "insight2": "Important announcements and updates",
+    "insight3": "Devotional thoughts and messages",
+    "bottomNote": "Activities and activity sections are managed dynamically by the temple administration."
+  },
+  
+"activitySection": {
+  "loading": "Loading Activities...",
+  "notFound": "Section Not Found",
+  "goBack": "Go Back",
+  "back": "Back",
+  "templeActivities": "TEMPLE ACTIVITIES",
+  "emptyTitle": "No Activities Yet",
+  "emptyText": "Activities under this section will be added soon.",
+  "viewDetails": "View Details"
+},
+
+"activityDetails": {
+  "loading": "Loading Activity...",
+  "notFound": "Activity Not Found",
+  "notFoundText": "We couldn't find the requested activity.",
+  "goBack": "Go Back",
+  "title": "Activity Details",
+  "date": "DATE",
+  "location": "LOCATION",
+  "about": "About This Activity",
+  "descriptionFallback": "Temple activity information will be available soon.",
+  "blessing": "May this sacred activity bring peace, devotion and divine blessings to all devotees.",
+  "backToActivities": "Back to Activities"
+}
+
+
+}

@@ -1,4 +1,9 @@
-import React, { useEffect, useRef, useState } from 'react';
+
+import React, {
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 
 import {
   Animated,
@@ -9,11 +14,16 @@ import {
   View,
 } from 'react-native';
 
+import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 
 import { apiRequest } from '@/services/api';
+
+// ========================================
+// COLORS
+// ========================================
 
 const COLORS = {
   background: '#FBF7F0',
@@ -29,6 +39,10 @@ const COLORS = {
   white: '#FFFFFF',
 };
 
+// ========================================
+// TYPES
+// ========================================
+
 type ActivitySection = {
   id: number;
   name: string;
@@ -39,28 +53,9 @@ type ActivitySection = {
   is_active: boolean;
 };
 
-const programs = [
-  {
-    icon: 'ॐ',
-    title: 'Dharmayatra',
-    description:
-      'Join spiritual journeys, pilgrimages and meaningful temple programs.',
-    meta: 'SPIRITUAL JOURNEY',
-  },
-  {
-    icon: '✦',
-    title: 'Special Programs',
-    description:
-      'Discover upcoming gatherings, celebrations and spiritual programs.',
-    meta: 'UPCOMING',
-  },
-];
-
-const insights = [
-  'Daily spiritual message and blessings',
-  'Important announcements and updates',
-  'Devotional thoughts and messages',
-];
+// ========================================
+// FADE-IN ANIMATION
+// ========================================
 
 function FadeIn({
   children,
@@ -69,8 +64,13 @@ function FadeIn({
   children: React.ReactNode;
   delay?: number;
 }) {
-  const opacity = useRef(new Animated.Value(0)).current;
-  const translateY = useRef(new Animated.Value(16)).current;
+  const opacity = useRef(
+    new Animated.Value(0)
+  ).current;
+
+  const translateY = useRef(
+    new Animated.Value(16)
+  ).current;
 
   useEffect(() => {
     Animated.parallel([
@@ -80,7 +80,6 @@ function FadeIn({
         delay,
         useNativeDriver: true,
       }),
-
       Animated.timing(translateY, {
         toValue: 0,
         duration: 500,
@@ -101,6 +100,10 @@ function FadeIn({
     </Animated.View>
   );
 }
+
+// ========================================
+// SECTION HEADING
+// ========================================
 
 function SectionHeading({
   eyebrow,
@@ -134,25 +137,63 @@ function SectionHeading({
   );
 }
 
+// ========================================
+// ACTIVITIES SCREEN
+// ========================================
+
 export default function ActivitiesScreen() {
-  const [sections, setSections] = useState<ActivitySection[]>(
-    []
-  );
+  const { t } = useTranslation();
+
+  // Language-dependent content is defined
+  // inside the component so it updates
+  // immediately when the language changes.
+
+  const programs = [
+    {
+      icon: 'ॐ',
+      title: t('activities.dharmayatra'),
+      description: t(
+        'activities.dharmayatraDescription'
+      ),
+      meta: t('activities.spiritualJourney'),
+    },
+    {
+      icon: '✦',
+      title: t('activities.specialPrograms'),
+      description: t(
+        'activities.specialProgramsDescription'
+      ),
+      meta: t('activities.upcoming'),
+    },
+  ];
+
+  const insights = [
+    t('activities.insight1'),
+    t('activities.insight2'),
+    t('activities.insight3'),
+  ];
+
+  const [sections, setSections] =
+    useState<ActivitySection[]>([]);
 
   const [loadingSections, setLoadingSections] =
     useState(true);
 
   const [sectionError, setSectionError] =
-    useState('');
+    useState(false);
 
   useEffect(() => {
     loadActivitySections();
   }, []);
 
+  // ========================================
+  // LOAD ACTIVITY SECTIONS
+  // ========================================
+
   const loadActivitySections = async () => {
     try {
       setLoadingSections(true);
-      setSectionError('');
+      setSectionError(false);
 
       const response = await apiRequest(
         '/activity-sections'
@@ -165,9 +206,7 @@ export default function ActivitiesScreen() {
         setSections(response.data);
       } else {
         setSections([]);
-        setSectionError(
-          'Unable to load activity sections.'
-        );
+        setSectionError(true);
       }
     } catch (error) {
       console.error(
@@ -176,22 +215,24 @@ export default function ActivitiesScreen() {
       );
 
       setSections([]);
-
-      setSectionError(
-        'Unable to connect to the activity service.'
-      );
+      setSectionError(true);
     } finally {
       setLoadingSections(false);
     }
   };
-const openSection = (sectionId: number) => {
-  router.push({
-    pathname: '/activities/section/[id]',
-    params: {
-      id: String(sectionId),
-    },
-  });
-};
+
+  // ========================================
+  // OPEN ACTIVITY SECTION
+  // ========================================
+
+  const openSection = (sectionId: number) => {
+    router.push({
+      pathname: '/activities/section/[id]',
+      params: {
+        id: String(sectionId),
+      },
+    });
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -199,9 +240,10 @@ const openSection = (sectionId: number) => {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.content}
       >
-        {/* =========================================
+
+        {/* ========================================
             PREMIUM HERO
-        ========================================= */}
+        ======================================== */}
 
         <FadeIn>
           <LinearGradient
@@ -215,7 +257,6 @@ const openSection = (sectionId: number) => {
             style={styles.hero}
           >
             <View style={styles.heroGlowOne} />
-
             <View style={styles.heroGlowTwo} />
 
             <View style={styles.heroTopRow}>
@@ -223,7 +264,7 @@ const openSection = (sectionId: number) => {
                 <View style={styles.liveDot} />
 
                 <Text style={styles.heroPillText}>
-                  SPIRITUAL • COMMUNITY • SERVICE
+                  {t('activities.heroPill')}
                 </Text>
               </View>
 
@@ -235,22 +276,21 @@ const openSection = (sectionId: number) => {
             </View>
 
             <Text style={styles.heroTitle}>
-              Activities
+              {t('activities.title')}
             </Text>
 
             <Text style={styles.heroSubtitle}>
-              Discover spiritual programs, seva,
-              celebrations and moments of devotion.
+              {t('activities.subtitle')}
             </Text>
 
             <View style={styles.heroBottom}>
               <View>
                 <Text style={styles.heroSmallLabel}>
-                  A SPACE TO
+                  {t('activities.spaceTo')}
                 </Text>
 
                 <Text style={styles.heroSmallValue}>
-                  Connect • Learn • Serve
+                  {t('activities.connectLearnServe')}
                 </Text>
               </View>
 
@@ -261,9 +301,9 @@ const openSection = (sectionId: number) => {
           </LinearGradient>
         </FadeIn>
 
-        {/* =========================================
-            INTRO
-        ========================================= */}
+        {/* ========================================
+            INTRODUCTION
+        ======================================== */}
 
         <FadeIn delay={80}>
           <View style={styles.introCard}>
@@ -275,12 +315,11 @@ const openSection = (sectionId: number) => {
 
             <View style={styles.introCopy}>
               <Text style={styles.introTitle}>
-                A living tradition
+                {t('activities.livingTradition')}
               </Text>
 
               <Text style={styles.introText}>
-                Explore experiences that bring devotion,
-                knowledge and community together.
+                {t('activities.introText')}
               </Text>
             </View>
 
@@ -290,14 +329,14 @@ const openSection = (sectionId: number) => {
           </View>
         </FadeIn>
 
-        {/* =========================================
+        {/* ========================================
             DYNAMIC ACTIVITY SECTIONS
-        ========================================= */}
+        ======================================== */}
 
         <FadeIn delay={140}>
           <SectionHeading
-            eyebrow="EXPLORE"
-            title="Spiritual Activities"
+            eyebrow={t('activities.explore')}
+            title={t('activities.spiritualActivities')}
           />
 
           {loadingSections ? (
@@ -307,7 +346,7 @@ const openSection = (sectionId: number) => {
               </Text>
 
               <Text style={styles.loadingText}>
-                Loading activities...
+                {t('activities.loading')}
               </Text>
             </View>
           ) : sectionError ? (
@@ -317,11 +356,11 @@ const openSection = (sectionId: number) => {
               </Text>
 
               <Text style={styles.errorTitle}>
-                Unable to load activities
+                {t('activities.loadError')}
               </Text>
 
               <Text style={styles.errorText}>
-                {sectionError}
+                {t('activities.connectionError')}
               </Text>
 
               <Pressable
@@ -329,7 +368,7 @@ const openSection = (sectionId: number) => {
                 onPress={loadActivitySections}
               >
                 <Text style={styles.retryButtonText}>
-                  Try Again
+                  {t('activities.retry')}
                 </Text>
               </Pressable>
             </View>
@@ -340,12 +379,11 @@ const openSection = (sectionId: number) => {
               </Text>
 
               <Text style={styles.emptyTitle}>
-                No activities available
+                {t('activities.noActivities')}
               </Text>
 
               <Text style={styles.emptyText}>
-                New activity sections will appear here
-                when they are added by the temple admin.
+                {t('activities.emptyText')}
               </Text>
             </View>
           ) : (
@@ -372,7 +410,6 @@ const openSection = (sectionId: number) => {
                   end={{ x: 1, y: 1 }}
                   style={styles.featureGradient}
                 >
-                  {/* Icon */}
                   <View
                     style={[
                       styles.featureIcon,
@@ -382,14 +419,11 @@ const openSection = (sectionId: number) => {
                         styles.featureIconDark,
                     ]}
                   >
-                    <Text
-                      style={styles.featureIconText}
-                    >
+                    <Text style={styles.featureIconText}>
                       {section.icon || '✦'}
                     </Text>
                   </View>
 
-                  {/* Content */}
                   <View style={styles.featureContent}>
                     <View style={styles.featureTitleRow}>
                       <Text
@@ -404,16 +438,14 @@ const openSection = (sectionId: number) => {
                       </Text>
                     </View>
 
-                    <Text
-                      style={styles.featureDescription}
-                    >
+                    <Text style={styles.featureDescription}>
                       {section.description ||
-                        'Explore spiritual activities and programs.'}
+                        t('activities.descriptionFallback')}
                     </Text>
 
                     <View style={styles.chip}>
                       <Text style={styles.chipText}>
-                        EXPLORE
+                        {t('activities.explore')}
                       </Text>
                     </View>
                   </View>
@@ -423,14 +455,14 @@ const openSection = (sectionId: number) => {
           )}
         </FadeIn>
 
-        {/* =========================================
+        {/* ========================================
             GURU VANI
-        ========================================= */}
+        ======================================== */}
 
         <FadeIn delay={260}>
           <SectionHeading
-            eyebrow="DAILY REFLECTION"
-            title="Guru Vani"
+            eyebrow={t('activities.dailyReflection')}
+            title={t('activities.guruVani')}
           />
 
           <LinearGradient
@@ -448,7 +480,7 @@ const openSection = (sectionId: number) => {
             <View style={styles.vaniTop}>
               <View style={styles.vaniBadge}>
                 <Text style={styles.vaniBadgeText}>
-                  TODAY'S MESSAGE
+                  {t('activities.todayMessage')}
                 </Text>
               </View>
 
@@ -458,28 +490,26 @@ const openSection = (sectionId: number) => {
             </View>
 
             <Text style={styles.vaniQuote}>
-              “Walk with devotion and let faith guide
-              every step.”
+              “{t('activities.quote')}”
             </Text>
 
             <View style={styles.vaniDivider} />
 
             <Text style={styles.vaniDescription}>
-              Daily sacred thoughts and spiritual
-              messages for a peaceful beginning.
+              {t('activities.vaniDescription')}
             </Text>
           </LinearGradient>
         </FadeIn>
 
-        {/* =========================================
+        {/* ========================================
             PROGRAMS
-        ========================================= */}
+        ======================================== */}
 
         <FadeIn delay={320}>
           <SectionHeading
-            eyebrow="DISCOVER"
-            title="Dharmayatra & Programs"
-            action="View all"
+            eyebrow={t('activities.discover')}
+            title={t('activities.programs')}
+            action={t('activities.viewAll')}
           />
 
           <ScrollView
@@ -489,20 +519,15 @@ const openSection = (sectionId: number) => {
           >
             {programs.map((program) => (
               <Pressable
-                key={program.title}
+                key={program.icon}
                 style={({ pressed }) => [
                   styles.programCard,
                   pressed && styles.pressed,
                 ]}
               >
                 <View style={styles.programVisual}>
-                  <View
-                    style={styles.programOrbLarge}
-                  />
-
-                  <View
-                    style={styles.programOrbSmall}
-                  />
+                  <View style={styles.programOrbLarge} />
+                  <View style={styles.programOrbSmall} />
 
                   <Text style={styles.programIcon}>
                     {program.icon}
@@ -517,15 +542,13 @@ const openSection = (sectionId: number) => {
                   {program.title}
                 </Text>
 
-                <Text
-                  style={styles.programDescription}
-                >
+                <Text style={styles.programDescription}>
                   {program.description}
                 </Text>
 
                 <View style={styles.programFooter}>
                   <Text style={styles.programLink}>
-                    Explore
+                    {t('activities.explore')}
                   </Text>
 
                   <Text style={styles.programArrow}>
@@ -537,9 +560,9 @@ const openSection = (sectionId: number) => {
           </ScrollView>
         </FadeIn>
 
-        {/* =========================================
-            SEVA CTA
-        ========================================= */}
+        {/* ========================================
+            SEVA
+        ======================================== */}
 
         <FadeIn delay={380}>
           <LinearGradient
@@ -549,7 +572,6 @@ const openSection = (sectionId: number) => {
             style={styles.sevaCard}
           >
             <View style={styles.sevaDecorOne} />
-
             <View style={styles.sevaDecorTwo} />
 
             <View style={styles.sevaIconWrap}>
@@ -559,16 +581,15 @@ const openSection = (sectionId: number) => {
             </View>
 
             <Text style={styles.sevaEyebrow}>
-              OFFER YOUR SERVICE
+              {t('activities.offerService')}
             </Text>
 
             <Text style={styles.sevaTitle}>
-              Serve with devotion
+              {t('activities.serveWithDevotion')}
             </Text>
 
             <Text style={styles.sevaText}>
-              Participate in seva and contribute your
-              time, skills and presence.
+              {t('activities.sevaDescription')}
             </Text>
 
             <Pressable
@@ -576,10 +597,12 @@ const openSection = (sectionId: number) => {
                 styles.sevaButton,
                 pressed && styles.buttonPressed,
               ]}
-              onPress={() => router.push('/pooja')}
+              onPress={() =>
+                router.push('/pooja')
+              }
             >
               <Text style={styles.sevaButtonText}>
-                Explore Seva
+                {t('activities.exploreSeva')}
               </Text>
 
               <Text style={styles.sevaButtonArrow}>
@@ -589,38 +612,30 @@ const openSection = (sectionId: number) => {
           </LinearGradient>
         </FadeIn>
 
-        {/* =========================================
+        {/* ========================================
             INSIGHTS
-        ========================================= */}
+        ======================================== */}
 
         <FadeIn delay={440}>
           <SectionHeading
-            eyebrow="STAY CONNECTED"
-            title="Insights & Messages"
+            eyebrow={t('activities.stayConnected')}
+            title={t('activities.insights')}
           />
 
           <View style={styles.insightsCard}>
             {insights.map((item, index) => (
               <Pressable
-                key={item}
+                key={index}
                 style={({ pressed }) => [
                   styles.insightRow,
-                  index !==
-                    insights.length - 1 &&
+                  index !== insights.length - 1 &&
                     styles.insightBorder,
                   pressed && styles.rowPressed,
                 ]}
               >
                 <View style={styles.insightNumber}>
-                  <Text
-                    style={
-                      styles.insightNumberText
-                    }
-                  >
-                    {String(index + 1).padStart(
-                      2,
-                      '0'
-                    )}
+                  <Text style={styles.insightNumberText}>
+                    {String(index + 1).padStart(2, '0')}
                   </Text>
                 </View>
 
@@ -636,20 +651,21 @@ const openSection = (sectionId: number) => {
           </View>
         </FadeIn>
 
-        {/* =========================================
+        {/* ========================================
             BOTTOM NOTE
-        ========================================= */}
+        ======================================== */}
 
         <Text style={styles.bottomNote}>
-          Activities and activity sections are managed
-          dynamically by the temple administration.
+          {t('activities.bottomNote')}
         </Text>
+
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
@@ -661,7 +677,9 @@ const styles = StyleSheet.create({
     paddingBottom: 44,
   },
 
-  /* HERO */
+  // ========================================
+  // HERO
+  // ========================================
 
   hero: {
     minHeight: 285,
@@ -784,7 +802,9 @@ const styles = StyleSheet.create({
     color: '#F4D18D',
   },
 
-  /* INTRO */
+  // ========================================
+  // INTRO
+  // ========================================
 
   introCard: {
     backgroundColor: COLORS.surface,
@@ -835,7 +855,9 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
 
-  /* SECTION HEADING */
+  // ========================================
+  // SECTION HEADING
+  // ========================================
 
   sectionHeading: {
     flexDirection: 'row',
@@ -869,7 +891,9 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
   },
 
-  /* DYNAMIC SECTIONS */
+  // ========================================
+  // DYNAMIC ACTIVITY SECTIONS
+  // ========================================
 
   featureCard: {
     borderRadius: 22,
@@ -1053,7 +1077,9 @@ const styles = StyleSheet.create({
     transform: [{ scale: 0.985 }],
   },
 
-  /* GURU VANI */
+  // ========================================
+  // GURU VANI
+  // ========================================
 
   vaniCard: {
     borderRadius: 24,
@@ -1122,7 +1148,9 @@ const styles = StyleSheet.create({
     color: '#D8C7BA',
   },
 
-  /* PROGRAMS */
+  // ========================================
+  // PROGRAMS
+  // ========================================
 
   horizontalList: {
     paddingBottom: 5,
@@ -1210,7 +1238,9 @@ const styles = StyleSheet.create({
     color: COLORS.gold,
   },
 
-  /* SEVA */
+  // ========================================
+  // SEVA
+  // ========================================
 
   sevaCard: {
     marginTop: 22,
@@ -1306,7 +1336,9 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
   },
 
-  /* INSIGHTS */
+  // ========================================
+  // INSIGHTS
+  // ========================================
 
   insightsCard: {
     backgroundColor: COLORS.surface,
@@ -1356,7 +1388,9 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
 
-  /* BOTTOM */
+  // ========================================
+  // BOTTOM
+  // ========================================
 
   bottomNote: {
     marginTop: 25,
@@ -1366,4 +1400,5 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingHorizontal: 20,
   },
+
 });

@@ -1,0 +1,437 @@
+    
+import React, {
+  useState,
+} from 'react';
+
+import {
+  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+
+import {
+  SafeAreaView,
+} from 'react-native-safe-area-context';
+
+import {
+  router,
+} from 'expo-router';
+
+import {
+  Ionicons,
+} from '@expo/vector-icons';
+
+import {
+  useTranslation,
+} from 'react-i18next';
+
+import {
+  AppLanguage,
+  changeAppLanguage,
+} from '@/localization/i18n';
+
+
+// ========================================
+// COLORS
+// ========================================
+
+const COLORS = {
+  background: '#FFFDF8',
+  white: '#FFFFFF',
+  maroon: '#6B1720',
+  maroonDark: '#541018',
+  gold: '#C69A3A',
+  goldSoft: '#F7EBD7',
+  border: '#E8DCCB',
+  text: '#30241F',
+  muted: '#8E8175',
+};
+
+
+// ========================================
+// SUPPORTED LANGUAGES
+// ========================================
+
+const LANGUAGES: {
+  code: AppLanguage;
+  nativeName: string;
+  englishName: string;
+}[] = [
+  {
+    code: 'en',
+    nativeName: 'English',
+    englishName: 'English',
+  },
+  {
+    code: 'te',
+    nativeName: 'తెలుగు',
+    englishName: 'Telugu',
+  },
+  {
+    code: 'kn',
+    nativeName: 'ಕನ್ನಡ',
+    englishName: 'Kannada',
+  },
+  {
+    code: 'hi',
+    nativeName: 'हिन्दी',
+    englishName: 'Hindi',
+  },
+  {
+    code: 'ta',
+    nativeName: 'தமிழ்',
+    englishName: 'Tamil',
+  },
+];
+
+
+// ========================================
+// LANGUAGE SCREEN
+// ========================================
+
+export default function LanguageSettingsScreen() {
+
+  const {
+    i18n,
+  } = useTranslation();
+
+  const [selectedLanguage, setSelectedLanguage] =
+    useState<AppLanguage>(
+      i18n.language as AppLanguage
+    );
+
+  const [saving, setSaving] =
+    useState(false);
+
+
+  // ========================================
+  // CHANGE LANGUAGE
+  // ========================================
+
+  const handleLanguageChange =
+    async (language: AppLanguage) => {
+
+      if (saving) {
+        return;
+      }
+
+      try {
+
+        setSaving(true);
+
+        await changeAppLanguage(language);
+
+        setSelectedLanguage(language);
+
+      } catch (error) {
+
+        console.error(
+          'Failed to change language:',
+          error
+        );
+
+      } finally {
+
+        setSaving(false);
+
+      }
+
+    };
+
+
+  // ========================================
+  // SCREEN
+  // ========================================
+
+  return (
+    <SafeAreaView
+      style={styles.container}
+      edges={['top', 'bottom']}
+    >
+
+      {/* HEADER */}
+
+      <View style={styles.header}>
+
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => router.back()}
+        >
+          <Ionicons
+            name="arrow-back"
+            size={24}
+            color={COLORS.maroon}
+          />
+        </TouchableOpacity>
+
+        <Text style={styles.headerTitle}>
+          Select Language
+        </Text>
+
+        <View style={{ width: 42 }} />
+
+      </View>
+
+
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
+
+        {/* LANGUAGE ICON */}
+
+        <View style={styles.iconContainer}>
+
+          <Ionicons
+            name="language-outline"
+            size={40}
+            color={COLORS.maroon}
+          />
+
+        </View>
+
+
+        {/* TITLE */}
+
+        <Text style={styles.title}>
+          Choose Your Language
+        </Text>
+
+        <Text style={styles.subtitle}>
+          Select your preferred language to use
+          the Hariharipura Temple App.
+        </Text>
+
+
+        {/* LANGUAGE OPTIONS */}
+
+        <View style={styles.languageList}>
+
+          {LANGUAGES.map((language) => {
+
+            const isSelected =
+              selectedLanguage === language.code;
+
+            return (
+
+              <TouchableOpacity
+                key={language.code}
+                style={[
+                  styles.languageCard,
+                  isSelected &&
+                    styles.selectedLanguageCard,
+                ]}
+                activeOpacity={0.8}
+                disabled={saving}
+                onPress={() =>
+                  handleLanguageChange(
+                    language.code
+                  )
+                }
+              >
+
+                <View style={styles.languageInfo}>
+
+                  <Text style={styles.nativeName}>
+                    {language.nativeName}
+                  </Text>
+
+                  <Text style={styles.englishName}>
+                    {language.englishName}
+                  </Text>
+
+                </View>
+
+
+                <Ionicons
+                  name={
+                    isSelected
+                      ? 'checkmark-circle'
+                      : 'ellipse-outline'
+                  }
+                  size={26}
+                  color={
+                    isSelected
+                      ? COLORS.maroon
+                      : COLORS.border
+                  }
+                />
+
+              </TouchableOpacity>
+
+            );
+
+          })}
+
+        </View>
+
+
+        {/* LOADING */}
+
+        {saving && (
+
+          <ActivityIndicator
+            size="small"
+            color={COLORS.maroon}
+            style={styles.loader}
+          />
+
+        )}
+
+
+        {/* INFORMATION */}
+
+        <View style={styles.infoBox}>
+
+          <Ionicons
+            name="information-circle-outline"
+            size={21}
+            color={COLORS.gold}
+          />
+
+          <Text style={styles.infoText}>
+            Your selected language will be
+            remembered the next time you
+            open the app.
+          </Text>
+
+        </View>
+
+      </ScrollView>
+
+    </SafeAreaView>
+  );
+
+}
+
+
+// ========================================
+// STYLES
+// ========================================
+
+const styles = StyleSheet.create({
+
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+  },
+
+  header: {
+    height: 60,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 18,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+
+  backButton: {
+    width: 42,
+    height: 42,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: COLORS.maroon,
+  },
+
+  content: {
+    padding: 22,
+    paddingBottom: 40,
+  },
+
+  iconContainer: {
+    width: 82,
+    height: 82,
+    borderRadius: 41,
+    backgroundColor: COLORS.goldSoft,
+    alignSelf: 'center',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 20,
+    marginBottom: 22,
+  },
+
+  title: {
+    fontSize: 23,
+    fontWeight: '800',
+    color: COLORS.maroonDark,
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+
+  subtitle: {
+    fontSize: 14,
+    lineHeight: 22,
+    color: COLORS.muted,
+    textAlign: 'center',
+    marginBottom: 30,
+  },
+
+  languageList: {
+    gap: 12,
+  },
+
+  languageCard: {
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 16,
+    paddingVertical: 17,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+
+  selectedLanguageCard: {
+    borderColor: COLORS.gold,
+    borderWidth: 2,
+    backgroundColor: '#FFFAF0',
+  },
+
+  languageInfo: {
+    flex: 1,
+  },
+
+  nativeName: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: COLORS.text,
+    marginBottom: 4,
+  },
+
+  englishName: {
+    fontSize: 12,
+    color: COLORS.muted,
+  },
+
+  loader: {
+    marginTop: 18,
+  },
+
+  infoBox: {
+    marginTop: 30,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    backgroundColor: COLORS.goldSoft,
+    padding: 16,
+    borderRadius: 14,
+  },
+
+  infoText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 20,
+    color: COLORS.maroonDark,
+  },
+
+});

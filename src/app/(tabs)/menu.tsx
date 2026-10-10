@@ -1,3 +1,4 @@
+
 import React from 'react';
 
 import {
@@ -7,76 +8,140 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { router } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
+
+import {
+  router,
+} from 'expo-router';
+
+import {
+  SafeAreaView,
+} from 'react-native-safe-area-context';
+
+import {
+  useTranslation,
+} from 'react-i18next';
+
+
+// ========================================
+// MENU SCREEN
+// ========================================
 
 export default function MenuScreen() {
+
+  const { t } = useTranslation();
+
   return (
     <SafeAreaView style={styles.container}>
+
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.content}
       >
-        <Text style={styles.title}>Menu</Text>
 
-        <Text style={styles.subtitle}>
-          Temple services and information
+        {/* HEADER */}
+
+        <Text style={styles.title}>
+          {t('tabs.menu')}
         </Text>
 
+        <Text style={styles.subtitle}>
+          {t(
+            'menu.subtitle',
+            'Temple services and information'
+          )}
+        </Text>
+
+
+        {/* MENU ITEMS */}
+
         <View style={styles.card}>
+
           <MenuItem
-  title="About Temple"
-  onPress={() => router.push('/about')}
-/>
-           <MenuItem
-  title="Deities"
-  onPress={() => router.push('/deity/[id]')}
-/>
-           <MenuItem
-  title="Activities"
-  onPress={() => router.push('/activities')}
-/>
+            title={t('menu.about', 'About Temple')}
+            onPress={() => router.push('/about')}
+          />
+
           <MenuItem
-  title="Pooja & Seva"
-  onPress={() => router.push('/pooja-details')}
-/>
+            title={t('tabs.deities')}
+            onPress={() => router.push('/deities')}
+          />
+
           <MenuItem
-  title="Gallery"
-  onPress={() => router.push('/gallery')}
-/>
+            title={t('tabs.activities')}
+            onPress={() => router.push('/activities')}
+          />
+
           <MenuItem
-  title="Publications"
-  onPress={() => router.push('/publications')}
-/>
+            title={t('menu.poojaSeva', 'Pooja & Seva')}
+            onPress={() => router.push('/pooja-details')}
+          />
+
           <MenuItem
-  title="Rooms"
-  onPress={() => router.push('/rooms')}
-/>
+            title={t('menu.gallery', 'Gallery')}
+            onPress={() => router.push('/gallery')}
+          />
+
+          <MenuItem
+            title={t('menu.publications', 'Publications')}
+            onPress={() => router.push('/publications')}
+          />
+
+          <MenuItem
+            title={t('features.rooms')}
+            onPress={() => router.push('/room-booking')}
+          />
+
+          <MenuItem
+            title={t('menu.account', 'My Account')}
+            onPress={() => router.push('/account')}
+          />
+
+          <MenuItem
+            title={t('features.bookings')}
+            onPress={() => router.push('/my-bookings')}
+          />
+
+          <MenuItem
+            title={t('menu.nearby', 'Nearby Places / Hotels')}
+            onPress={() => router.push('/nearby')}
+          />
+
+          <MenuItem
+            title={t('menu.contact', 'Contact Temple')}
+            onPress={() => router.push('/contact')}
+          />
+
+          <MenuItem
+            title={t('menu.policies', 'Policies')}
+            onPress={() => router.push('/policies')}
+          />
+
+
+          {/* ================================= */}
+          {/* LANGUAGE SETTINGS                 */}
+          {/* ================================= */}
+
         <MenuItem
-  title="My Account"
-  onPress={() => router.push('/account')}
-/>
-          <MenuItem
-  title="My Bookings"
-  onPress={() => router.push('/my-bookings')}
-/>
-          <MenuItem
-  title="Nearby Places / Hotels"
-  onPress={() => router.push('/nearby')}
-/>
-        <MenuItem
-  title="Contact Temple"
-  onPress={() => router.push('/contact')}
-/>
-          <MenuItem
-  title="Policies"
-  onPress={() => router.push('/policies')}
+  title={t('common.language')}
+  onPress={() =>
+    router.push({
+      pathname: '/language-settings' as any,
+    })
+  }
 />
         </View>
+
       </ScrollView>
+
     </SafeAreaView>
   );
+
 }
+
+
+// ========================================
+// MENU ITEM COMPONENT
+// ========================================
 
 function MenuItem({
   title,
@@ -85,12 +150,14 @@ function MenuItem({
   title: string;
   onPress?: () => void;
 }) {
+
   return (
     <TouchableOpacity
       style={styles.item}
       onPress={onPress}
       activeOpacity={0.7}
     >
+
       <Text style={styles.itemText}>
         {title}
       </Text>
@@ -98,11 +165,19 @@ function MenuItem({
       <Text style={styles.arrow}>
         ›
       </Text>
+
     </TouchableOpacity>
   );
+
 }
 
+
+// ========================================
+// STYLES
+// ========================================
+
 const styles = StyleSheet.create({
+
   container: {
     flex: 1,
     backgroundColor: '#FFF9F0',
@@ -146,10 +221,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#4A2C18',
     fontWeight: '600',
+    flexShrink: 1,
   },
 
   arrow: {
     fontSize: 22,
     color: '#B66A2C',
   },
+
 });
